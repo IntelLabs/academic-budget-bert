@@ -1,0 +1,10 @@
+deepspeed
+transformers==4.4.0
+numpy
+tqdm
+sklearn
+nltk
+wandb
+six
+h5py
+wikiextractor
