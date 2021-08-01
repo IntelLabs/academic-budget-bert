@@ -67,7 +67,6 @@ except:
         for advanced logging please install using pip install wandb"
     )
 
-SCALE_CNT_LIMIT = 100
 
 global_step = 0
 global_data_samples = 0
@@ -162,7 +161,6 @@ def train(
 
     model.train()
 
-    rounds = 20
     all_step_time = 0.0
     eval_loss = None
     scale_counter_at_1 = 0
@@ -212,7 +210,7 @@ def train(
                     scale_counter_at_1 += 1
                     logger.info(f"Optimizer scale=={scale_counter_at_1}")
 
-                if scale_counter_at_1 >= SCALE_CNT_LIMIT:
+                if scale_counter_at_1 >= args.scale_cnt_limit:
                     logger.warning("Optimizer scale==1 counter has been reached")
                     del batch
                     break
@@ -226,7 +224,7 @@ def train(
         step_time = time.time() - step_start
         all_step_time += step_time
         if (
-            global_step % rounds == 0
+            global_step % args.log_throughput_every == 0
             and global_step != 0
             and model.network.is_gradient_accumulation_boundary()
             and dist.get_rank() == 0
@@ -235,7 +233,7 @@ def train(
                 args.train_micro_batch_size_per_gpu
                 * args.gradient_accumulation_steps
                 * dist.get_world_size()
-                * rounds
+                * args.log_throughput_every
             )
             logger.info(
                 "At step {}, the throughput is {:2f} Samples/s".format(
@@ -253,7 +251,7 @@ def train(
     global_data_samples = current_data_sample_count
 
     logger.info(f"Epoch {index}: check whether to run validation...")
-    if validation_dataset is not None and scale_counter_at_1 < SCALE_CNT_LIMIT:
+    if validation_dataset is not None and scale_counter_at_1 < args.scale_cnt_limit:
         time_diff = get_time_diff_hours(get_now(), args.exp_start_marker)
         if should_run_validation(time_diff, args, epoch=index):
             eval_loss = pretrain_validation(args, model, validation_dataset, global_step)
@@ -267,7 +265,7 @@ def train(
             args.total_training_time,
         )
         and master_process(args)
-        and scale_counter_at_1 < SCALE_CNT_LIMIT
+        and scale_counter_at_1 < args.scale_cnt_limit
     ):
         logger.info("Creating a Fine-tune job")
         create_finetune_job(args, index, global_step, model)
@@ -463,7 +461,7 @@ def check_if_early_stop(eval_loss, scale_counter, args):
     if eval_loss is not None and np.isnan(eval_loss):
         return True
 
-    if scale_counter >= SCALE_CNT_LIMIT:
+    if scale_counter >= args.scale_cnt_limit:
         return True
 
     time_diff = get_time_diff_hours(get_now(), args.exp_start_marker)

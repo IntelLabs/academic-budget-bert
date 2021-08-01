@@ -1,4 +1,4 @@
-deepspeed
+deepspeed==0.4.3
 transformers==4.4.0
 numpy
 tqdm

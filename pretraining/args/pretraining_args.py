@@ -58,12 +58,12 @@ class PretrainScriptParamsArguments:
     )
 
     job_name: Optional[str] = field(
-        default="bert_pretrain_experiment",
-        metadata={"help": "This is the path to store the output and TensorBoard results."},
+        default="pretraining_experiment",
+        metadata={"help": "Experiment job name"},
     )
 
     project_name: Optional[str] = field(
-        default="large-lm-pretraining", metadata={"help": "Project name (W&B)"}
+        default="budget-lm-pretraining", metadata={"help": "Project name (W&B)"}
     )
 
     max_steps: Optional[int] = field(
@@ -136,7 +136,7 @@ class PretrainScriptParamsArguments:
 
     finetune_checkpoint_at_end: Optional[bool] = field(
         default=True,
-        metadata={"help": "Should save a finetuning checkpoint when training is done."},
+        metadata={"help": "Save a finetuning checkpoint when training is done."},
     )
 
     gradient_accumulation_steps: Optional[int] = field(
@@ -169,6 +169,16 @@ class PretrainScriptParamsArguments:
         metadata={
             "help": "The upper bound value of the validation loss when *early_stop_time* has reached?"
         },
+    )
+        
+    scale_cnt_limit: Optional[int] = field(
+        default=100,
+        metadata={"help": "The limit of the number of times the scale in the optimizer reached 1, in order to early stop."},
+    )
+    
+    log_throughput_every: Optional[int] = field(
+        default=20,
+        metadata={"help": "How many steps should the throughput (im Samples/s) be logged."},
     )
 
     def __post_init__(self):

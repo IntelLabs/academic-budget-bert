@@ -1,24 +1,24 @@
-# Training BERT with an Academic Budget
+# Training BERT with Compute/Time (Academic) Budget
 
-This repository contains scripts for pre-training and fine-tuning BERT-like models with limited time and compute budget.
+This repository contains scripts for pre-training and finetuning BERT-like models with limited time and compute budget.
 The code is based on the work presented in the following paper:
 
 Peter Izsak, Moshe Berchansky, Omer Levy, [How to Train BERT with an Academic Budget](https://arxiv.org/abs/2104.07705), Preprint 2021.
 
 ## Installation
 
-The pre-training and fine-tuning scripts are based on [Deepspeed](https://github.com/microsoft/DeepSpeed) and HuggingFace [Transformers](https://github.com/huggingface/transformers) libraries.
+The pre-training and finetuning scripts are based on [Deepspeed](https://github.com/microsoft/DeepSpeed) and HuggingFace [Transformers](https://github.com/huggingface/transformers) libraries.
 
-### Preliminary installation
+### Preliminary Installation
 
-Our code is built using PyTorch and uses [`apex`](https://github.com/NVIDIA/apex) for mixed-precision training. We recommend creating a virtual environment with python 3.6+, PyTorch and apex.
+We recommend creating a virtual environment with python 3.6+, PyTorch and [`apex`](https://github.com/NVIDIA/apex).
 
-### Installing requirements
+### Installation Requirements
 ```bash
 pip install -r requirements.txt
 ```
 
-Run `/usr/bin/python -m deepspeed.env_report` and verify required deepspeed components can be compiled (JIT).
+We suggest running Deepspeed's utility `ds_report` and verify Deepspeed components can be compiled (JIT).
 
 ## Dataset
 
@@ -30,9 +30,9 @@ Pretraining script: `run_pretraining.py`
 
 For all possible pretraining arguments see: `python run_pretraining.py -h`
 
-See subsections below for configuring different arguments in the training session.
+We highly suggest reviewing the various [training features](#time-based-training) we provide within the library.
 
-Command for training the model presented in the paper (trained for 24 hours). (24-layer/1024H (similar to BERT-large), with time-based learning rate schedule, mixed precision and Deepspeed)
+##### Example for training with the best configuration presented in our paper (24-layers/1024H/time-based learning rate schedule/fp16):
 
 ```bash
 deepspeed run_pretraining.py \
@@ -54,17 +54,17 @@ deepspeed run_pretraining.py \
   --gradient_clipping 0.0 \
   --optimizer_type adamw \
   --weight_decay 0.01 \
-  --betas 0.9,0.98 --eps 1e-6 \
-  --seed 42 \
+  --adam_beta1 0.9 \
+  --adam_beta2 0.98 \
+  --adam_eps 1e-6 \
   --total_training_time 24.0 \
   --early_exit_time_marker 24.0 \
   --dataset_path <dataset path> \
-  --max_seq_length 128 \
   --output_dir /tmp/training-out \
   --print_steps 100 \
   --num_epochs_between_checkpoints 10000 \
-  --job_name extra_exp \
-  --project_name bert-pretraining \
+  --job_name pretraining_experiment \
+  --project_name budget-bert-pretraining \
   --validation_epochs 3 \
   --validation_epochs_begin 1 \
   --validation_epochs_end 1 \
@@ -77,50 +77,54 @@ deepspeed run_pretraining.py \
   --use_early_stopping \
   --early_stop_time 180 \
   --early_stop_eval_loss 6 \
+  --seed 42 \
   --fp16
 ```
 
-### Time-based training
+### Time-based Training
 
-Pretraining can be limited to a time based value by defining `--total_training_time=24.0` (24 hours for example).
+Pretraining can be limited to a time-based value by defining `--total_training_time=24.0` (24 hours for example).
 
-### Time-based learning rate scheduling
+### Time-based Learning Rate Scheduling
 
-The learning rate can be scheduled to change according to configured total training time. The argument `--total_training_time` controls the total time assigned for the trainer to run and must be specified in order to use time-based learning rate scheduling.
+The learning rate can be scheduled to change according to the configured total training time. The argument `--total_training_time` controls the total time assigned for the trainer to run, and must be specified in order to use time-based learning rate scheduling.
+
 <p align="center">
 <img src="assets/lr_schedule.png" alt="Time-based Learning rate schedule" width="450"/>
 </p>
-To select time-based learning rate scheduling, define `--lr_schedule time` and define a shape for for the annealing curve (`--curve=linear` for example as seen in the figure). The warmup phase of the learning rate is define by specifying a proportion (`--warmup_proportion`) which accounts for the time-budget proportion available in the training session (as defined by `--total_training_time`). For example, for a 24 hour training session, `warmup_proportion=0.1` would account for 10% of 24 hours, that is, 2.4 hours (or 144 minutes) to reach peak learning rate. The learning rate will then be scheduled to reach 0 at the end of the time budget. See provided figure for an example.
 
-### Checkpoints and Finetune checkpoints
+To select time-based learning rate scheduling, define `--lr_schedule time`, and define a shape for for the annealing curve (`--curve=linear` for example, as seen in the figure). The warmup phase of the learning rate is define by specifying a proportion (`--warmup_proportion`) which accounts for the time-budget proportion available in the training session (as defined by `--total_training_time`). For example, for a 24 hour training session, `warmup_proportion=0.1` would account for 10% of 24 hours, that is, 2.4 hours (or 144 minutes) to reach peak learning rate. The learning rate will then be scheduled to reach 0 at the end of the time budget. We refer to the provided figure for an example.
+
+### Checkpoints and Finetune Checkpoints
 
 There are 2 types of checkpoints that can be enabled:
 
-- training checkpoint - save model weights, optimizer state and training args and can be configured by `--num_epochs_between_checkpoints`.
-- finetuning checkpoint - save model weights and configuration to be used for fine-tuning and can be configured by `--finetune_time_markers`.
+- Training checkpoint - saves model weights, optimizer state and training args. Defined by `--num_epochs_between_checkpoints`.
+- Finetuning checkpoint - saves model weights and configuration to be used for finetuning later on. Defined by `--finetune_time_markers`.
 
-`finetune_time_markers` can be assigned multiple points in the training time-budget by providing a list of time markers of the overall training progress. For example `--finetune_time_markers=0.5` will save a fine-tuning checkpoint when reaching 50% of training time budget. (for multiple use commas without space `0.5,0.6,0.9`)
+`finetune_time_markers` can be assigned multiple points in the training time-budget by providing a list of time markers of the overall training progress. For example `--finetune_time_markers=0.5` will save a finetuning checkpoint when reaching 50% of training time budget. For multiple finetuning checkpoints, use commas without space `0.5,0.6,0.9`.
 
-### Validation scheduling
+### Validation Scheduling
 
-Running evaluation on the validation dataset can be enabled with `--do_validation`. 
+Enable validation while pre-training with `--do_validation`
 
-Validation can be run at the end of each epoch and can be controlled by `--validation_epochs` which controls the number of epochs between validation runs. To easy the validation process in the later parts of the training it is possible to control the scheduling by defining proportions of the training process  `--validation_begin_proportion` and `--validation_end_proportion`. A value of 0.1 means that its the first 10% or last 10% of the available time-budget. With the keyword `--validation_epochs_begin` and `--validation_epochs_end` the number of epochs between validation run can be changed.
-This is useful for running more validation checks in the beginning and the end of the training session.
+Control the number of epochs between validation runs with `--validation_epochs=<num>`
+
+To control the amount of validation runs in the beginning and end (running more that `validation_epochs`) use `validation_begin_proportion` and `validation_end_proportion` to specify the proportion of time and, `validation_epochs_begin` and `validation_epochs_end` to control the custom values accordingly. 
 
 ### Mixed Precision Training
 
-Mixed precision is support by adding `--fp16`. Use `--fp16_backend=ds` to use Deepspeed's mixed precision backend and `--fp16_backend=apex` for `apex` (`--fp16_opt` controls optimization level).
+Mixed precision is supported by adding `--fp16`. Use `--fp16_backend=ds` to use Deepspeed's mixed precision backend and `--fp16_backend=apex` for `apex` (`--fp16_opt` controls optimization level).
 
 ## Finetuning
 
-Use `run_glue.py` to run finetuning on a saved checkpoint on GLUE tasks. 
+Use `run_glue.py` to run finetuning for a saved checkpoint on GLUE tasks. 
 
 The finetuning script is identical to the one provided by Huggingface with the addition of our model.
 
 For all possible pretraining arguments see: `python run_glue.py -h`
 
-Example for finetuning on MRPC:
+##### Example for finetuning on MRPC:
 
 ```bash
 python run_glue.py \
@@ -143,7 +147,7 @@ python run_glue.py \
 ```
 
 
-## Generating Pretraining commands
+## Generating Pretraining Commands
 
 We provide a useful script for generating multiple (or single) pretraining commands by using `python generate_training_commands.py`.
 
@@ -155,23 +159,26 @@ python generate_training_commands.py -h
  	--init_cmd INIT_CMD   initialization command (deepspeed or python directly)
 ```
 
-Parameter yaml must be defined with 2 main keys; `hyperparameters` with argument values defined as a list of possible values, and `default_parameters` as default values.
+A parameter yaml must be defined with 2 main keys: `hyperparameters` with argument values defined as a list of possible values, and `default_parameters` as default values. Each generated command will be a possible combination of the various arguments specified in the `hyperparameters` section.
 
 Example:
 
 ```yaml
 hyperparameters:
   param1: [val1, val2]
+  param2: [val1, val2]
 
 default_parameters:
-  param2: 0.0
+  param3: 0.0
 ```
 
 will result in:
 
 ```bash
-deepspeed run_pretraining.py --param1=val1 param2=0.0
-deepspeed run_pretraining.py --param1=val2 param2=0.0
+deepspeed run_pretraining.py --param1=val1 --param2=val1 param3=0.0
+deepspeed run_pretraining.py --param1=val1 --param2=val2 param3=0.0
+deepspeed run_pretraining.py --param1=val2 --param2=val1 param3=0.0
+deepspeed run_pretraining.py --param1=val2 --param2=val2 param3=0.0
 ```
 
 ## Citation

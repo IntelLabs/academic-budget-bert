@@ -233,12 +233,12 @@ class RMSNorm(torch.nn.Module):
         return self.scale * x_normed
 
 
-LAYER_NORM_TYPES = {"pytorch": nn.LayerNorm, "apex": get_apex_layer_norm, "rmsnorm": RMSNorm}
+LAYER_NORM_TYPES = {"pytorch": nn.LayerNorm, "apex": get_apex_layer_norm(), "rms_norm": RMSNorm}
 
 
 def get_layer_norm_type(config):
     if config.layer_norm_type in LAYER_NORM_TYPES:
-        return LAYER_NORM_TYPES[config.layer_norm_type]()
+        return LAYER_NORM_TYPES[config.layer_norm_type]
     else:
         raise Exception(f"Layer norm of type {config.layer_norm_type} is not available.")
 
