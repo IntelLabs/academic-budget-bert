@@ -206,7 +206,7 @@ def train(
                 global_step += 1
 
                 # HACK: add to scale counter if stuck at scale 1 (to detect possible NaN (diverged model))
-                if optimizer.cur_scale == 1:
+                if args.fp16 and optimizer.cur_scale == 1:
                     scale_counter_at_1 += 1
                     logger.info(f"Optimizer scale=={scale_counter_at_1}")
 
