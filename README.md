@@ -175,10 +175,10 @@ default_parameters:
 will result in:
 
 ```bash
-deepspeed run_pretraining.py --param1=val1 --param2=val1 param3=0.0
-deepspeed run_pretraining.py --param1=val1 --param2=val2 param3=0.0
-deepspeed run_pretraining.py --param1=val2 --param2=val1 param3=0.0
-deepspeed run_pretraining.py --param1=val2 --param2=val2 param3=0.0
+deepspeed run_pretraining.py --param1=val1 --param2=val1 --param3=0.0
+deepspeed run_pretraining.py --param1=val1 --param2=val2 --param3=0.0
+deepspeed run_pretraining.py --param1=val2 --param2=val1 --param3=0.0
+deepspeed run_pretraining.py --param1=val2 --param2=val2 --param3=0.0
 ```
 
 ## Citation
