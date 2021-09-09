@@ -109,7 +109,8 @@ if __name__ == "__main__":
     shard_idx = {"train": 0, "test": 0}
     for dup_idx in range(args.dup_factor):
         for f in shard_files:
-            set_group = "train" if "train" in f else "test"
+            file_name = os.path.basename(f)
+            set_group = "train" if "train" in file_name else "test"
             last_process = create_shard(f, shard_idx[set_group], set_group, args)
             shard_idx[set_group] += 1
     last_process.wait()
