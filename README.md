@@ -3,7 +3,7 @@
 This repository contains scripts for pre-training and finetuning BERT-like models with limited time and compute budget.
 The code is based on the work presented in the following paper:
 
-Peter Izsak, Moshe Berchansky, Omer Levy, [How to Train BERT with an Academic Budget](https://arxiv.org/abs/2104.07705), Preprint 2021.
+Peter Izsak, Moshe Berchansky, Omer Levy, [How to Train BERT with an Academic Budget](https://arxiv.org/abs/2104.07705) - (to appear at EMNLP 2021).
 
 ## Installation
 
