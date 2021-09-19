@@ -161,7 +161,7 @@ class ValidationDataset:
         self.dataset_files = [
             os.path.join(dataset_path, f)
             for f in os.listdir(dataset_path)
-            if os.path.isfile(os.path.join(dataset_path, f)) and "valid" in f
+            if os.path.isfile(os.path.join(dataset_path, f)) and "test" in f
         ]
         assert (
             len(self.dataset_files) > 0
