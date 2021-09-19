@@ -186,7 +186,7 @@ deepspeed run_pretraining.py --param1=val2 --param2=val2 --param3=0.0
 If you find this paper or this code useful, please cite this paper:
 
 ```
-@article{izsak-etal-bert-2021,
+@article{izsak2021,
   author={Izsak, Peter and Berchansky, Moshe and Levy, Omer},
   title={How to Train BERT with an Academic Budget},
   journal={arXiv preprint arXiv:2104.07705},
