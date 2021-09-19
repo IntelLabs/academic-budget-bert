@@ -133,7 +133,7 @@ def create_finetune_job(args, index, global_step, model):
     try:
 
         checkpoint_id = f"epoch{index}_step{global_step}"
-        model.save_weights_ckpt(
+        model.save_weights(
             checkpoint_id=checkpoint_id,
             output_dir=args.saved_model_path,
             is_deepspeed=args.deepspeed,
