@@ -32,7 +32,7 @@ import uuid
 
 import numpy as np
 import transformers
-from datasets import load_dataset, load_metric
+from dataset import load_dataset, load_metric
 from transformers import (
     AutoConfig,
     AutoModelForSequenceClassification,
