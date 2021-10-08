@@ -24,7 +24,7 @@ import random
 import sys
 from argparse import Namespace
 from pretraining.args.deepspeed_args import remove_cuda_compatibility_for_kernel_compilation
-from pretraining.modeling import BertForSequenceClassification
+# from pretraining.modeling import BertForSequenceClassification
 from pretraining.configs import PretrainedBertConfig
 from dataclasses import dataclass, field
 from typing import Optional
@@ -32,7 +32,7 @@ import uuid
 
 import numpy as np
 import transformers
-from dataset import load_dataset, load_metric
+from run_pretraining import load_dataset, load_metric
 from transformers import (
     AutoConfig,
     AutoModelForSequenceClassification,
