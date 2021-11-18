@@ -3,7 +3,7 @@
 This repository contains scripts for pre-training and finetuning BERT-like models with limited time and compute budget.
 The code is based on the work presented in the following paper:
 
-Peter Izsak, Moshe Berchansky, Omer Levy, [How to Train BERT with an Academic Budget](https://arxiv.org/abs/2104.07705) - (to appear at EMNLP 2021).
+Peter Izsak, Moshe Berchansky, Omer Levy, [How to Train BERT with an Academic Budget](https://aclanthology.org/2021.emnlp-main.831.pdf) (EMNLP 2021).
 
 ## Installation
 
@@ -186,11 +186,16 @@ deepspeed run_pretraining.py --param1=val2 --param2=val2 --param3=0.0
 If you find this paper or this code useful, please cite this paper:
 
 ```
-@article{izsak2021,
-  author={Izsak, Peter and Berchansky, Moshe and Levy, Omer},
-  title={How to Train BERT with an Academic Budget},
-  journal={arXiv preprint arXiv:2104.07705},
-  url = {https://arxiv.org/abs/2104.07705} 
-  year={2021}
+@inproceedings{izsak-etal-2021-train,
+    title = "How to Train {BERT} with an Academic Budget",
+    author = "Izsak, Peter  and
+      Berchansky, Moshe  and
+      Levy, Omer",
+    booktitle = "Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing",
+    month = nov,
+    year = "2021",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2021.emnlp-main.831",
 }
+
 ```
