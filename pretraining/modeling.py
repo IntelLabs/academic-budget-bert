@@ -253,12 +253,11 @@ class BertEmbeddings(nn.Module):
         self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
         self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
 
-        # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
-        # any TensorFlow checkpoint file
+        self.layernorm_embedding = config.layernorm_embedding
+        if config.layernorm_embedding:
+            BertLayerNorm = get_layer_norm_type(config)
+            self.LayerNorm = BertLayerNorm(config.hidden_size, eps=1e-12)
 
-        BertLayerNorm = get_layer_norm_type(config)
-
-        self.LayerNorm = BertLayerNorm(config.hidden_size, eps=1e-12)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
     def forward(self, input_ids, token_type_ids=None):
@@ -274,7 +273,7 @@ class BertEmbeddings(nn.Module):
 
         embeddings = words_embeddings + position_embeddings + token_type_embeddings
 
-        if self.config.useLN:
+        if self.layernorm_embedding:
             embeddings = self.LayerNorm(embeddings)
 
         embeddings = self.dropout(embeddings)

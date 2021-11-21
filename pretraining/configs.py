@@ -39,6 +39,7 @@ class PretrainedBertConfig(BertConfig):
         fused_linear_layer=True,
         sparse_mask_prediction=True,
         layer_norm_type="apex",
+        layernorm_embedding=False,
         **kwargs
     ):
         super().__init__(
@@ -63,6 +64,7 @@ class PretrainedBertConfig(BertConfig):
         self.fused_linear_layer = fused_linear_layer
         self.sparse_mask_prediction = sparse_mask_prediction
         self.layer_norm_type = layer_norm_type
+        self.layernorm_embedding = layernorm_embedding
 
 
 class PretrainedRobertaConfig(PretrainedBertConfig):
