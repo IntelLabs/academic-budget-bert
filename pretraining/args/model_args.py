@@ -87,6 +87,10 @@ class ModelConfigArguments:
         default=512, metadata={"help": "max_position_embeddings"}
     )
 
+    layernorm_embedding: Optional[bool] = field(
+        default=False, metadata={"help": "add layernorm to embedding layer"}
+    )
+
     type_vocab_size: Optional[int] = field(default=2, metadata={"help": "type_vocab_size"})
 
     initializer_range: Optional[float] = field(default=0.02, metadata={"help": "initializer_range"})
