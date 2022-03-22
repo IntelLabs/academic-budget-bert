@@ -78,7 +78,9 @@ class Sharding:
 
         def chunks(data, n_processes=7):
             size = len(data)
-            chunk_sz = int(size/n_processes) + int(size % n_processes)
+            chunk_sz = int(size//n_processes) 
+            if size % n_processes != 0:
+                chunk_sz += 1
 
             start_index = 0
             all_indices = np.arange(len(data))
