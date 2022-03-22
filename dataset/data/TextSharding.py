@@ -119,9 +119,8 @@ class Sharding:
                 proc.join()
 
         elif use_multiprocessing == "queue":
-            max_queue_size = 100
             n_processes = 7
-            work_queue = multiprocessing.Queue(maxsize=max_queue_size)
+            work_queue = multiprocessing.Queue()
             jobs = []
 
             def child_work(articles, process_index, work_queue):
