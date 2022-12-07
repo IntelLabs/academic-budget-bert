@@ -1,1 +1,4 @@
 *.pyc
+data
+local_cache
+saved_models
