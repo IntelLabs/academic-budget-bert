@@ -22,13 +22,14 @@ deepspeed --num_gpus 4 run_pretraining.py \
   --adam_beta1 0.9 \
   --adam_beta2 0.98 \
   --adam_eps 1e-6 \
-  --total_training_time 24.0 \
-  --early_exit_time_marker 24.0 \
-  --dataset_path /n/tata_ddos_ceph/woojeong/data/enwiki_books_128_20/ \
-  --output_dir ./saved_models/training-out \
+  --total_training_time 48.0 \
+  --early_exit_time_marker 48.0 \
+  --dataset_path /n/tata_ddos_ceph/woojeong/data/enwiki_books_128_20/total \
+  --output_dir ./saved_models/training-out-large \
   --print_steps 100 \
   --num_epochs_between_checkpoints 10000 \
   --job_name pretraining_experiment \
+  --current_run_id 1 \
   --project_name budget-bert-pretraining \
   --validation_epochs 3 \
   --validation_epochs_begin 1 \
