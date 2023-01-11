@@ -109,7 +109,7 @@ def copy_attention(
     src2: Type[BertAttention],
     tgt: Type[BertAttention],
     epsilon: float,
-    skip_layernorm: bool,
+    # skip_layernorm: bool,
 ) -> None:
     """
     Copy input/output linear projections and layernorm of the two source BertAttention modules to the target module
@@ -119,7 +119,7 @@ def copy_attention(
         src2 (transformers.models.bert.modeling_bert.BertAttention): second source BertAttention module
         tgt (transformers.models.bert.modeling_bert.BertAttention): target BertAttention module
         epsilon (float): float number to fill the rest
-        skip_layernorm (bool): whether not to stich layernorms
+        # skip_layernorm (bool): whether not to stich layernorms
     """
 
     # Key, query, value projections
@@ -128,9 +128,9 @@ def copy_attention(
     # Output projection
     copy_linear(src1.output.dense, src2.output.dense, tgt.output.dense, epsilon)
 
-    # Layernorm
-    if not skip_layernorm:
-        copy_layernorm(src1.output.LayerNorm, src2.output.LayerNorm, tgt.output.LayerNorm)
+    # # Layernorm
+    # if not skip_layernorm:
+    #     copy_layernorm(src1.output.LayerNorm, src2.output.LayerNorm, tgt.output.LayerNorm)
 
 
 def copy_layer(
@@ -143,23 +143,28 @@ def copy_layer(
         src2 (transformers.models.bert.modeling_bert.BertLayer): second source BertLayer
         tgt (transformers.models.bert.modeling_bert.BertLayer): target BertLayer
         epsilon (float): float number to fill the rest
-        # current_ln_mode (str): layernorm mode, pre-ln or post-ln
-        skip_layernorm (bool): whether not to stich layernorms
+        # skip_layernorm (bool): whether not to stitch layernorms
     """
     # Multihead attentions
-    copy_attention(src1.attention, src2.attention, tgt.attention, epsilon, skip_layernorm)
+    copy_attention(src1.attention, src2.attention, tgt.attention, epsilon)
 
     # Intermediate ffn
-    copy_linear(src1.intermediate.dense, src2.intermediate.dense, tgt.intermediate.dense, epsilon)
+    copy_linear(src1.intermediate.dense_act, src2.intermediate.dense_act, tgt.intermediate.dense_act, epsilon)
 
     # Output ffn
     copy_linear(src1.output.dense, src2.output.dense, tgt.output.dense, epsilon)
-    if not skip_layernorm:
-        copy_layernorm(src1.output.LayerNorm, src2.output.LayerNorm, tgt.output.LayerNorm)
+    # # No output layernorm
+    # if not skip_layernorm:
+    #     copy_layernorm(src1.output.LayerNorm, src2.output.LayerNorm, tgt.output.LayerNorm)
 
+    # NOTE: copy both PreAttentionLayerNorm, PostAttentionLayerNorm
+    if not skip_layernorm:
+        copy_layernorm(src1.PreAttentionLayerNorm, src2.PreAttentionLayerNorm, tgt.PreAttentionLayerNorm)
+        copy_layernorm(src1.PostAttentionLayerNorm, src2.PostAttentionLayerNorm, tgt.PostAttentionLayerNorm)
 
 def copy_embeddings(
-    src1: Type[BertEmbeddings], src2: Type[BertEmbeddings], tgt: Type[BertEmbeddings], skip_layernorm: bool
+    src1: Type[BertEmbeddings], src2: Type[BertEmbeddings], tgt: Type[BertEmbeddings], 
+    # skip_layernorm: bool
 ) -> None:
     """
     Copy embeddings and layernorm of the two source BertEmbeddings modules to the target module
@@ -167,7 +172,7 @@ def copy_embeddings(
         src1 (transformers.models.bert.modeling_bert.BertEmbeddings): first source BertEmbeddings module
         src2 (transformers.models.bert.modeling_bert.BertEmbeddings): second source BertEmbeddings module
         tgt (transformers.models.bert.modeling_bert.BertEmbeddings): target BertEmbeddings module
-        skip_layernorm (bool): whether not to stich layernorms
+        # skip_layernorm (bool): whether not to stich layernorms
     """
     # Embeddings
     embed_types = ["word_embeddings", "position_embeddings", "token_type_embeddings"]
@@ -180,9 +185,9 @@ def copy_embeddings(
             dim=-1,
         )
 
-    # Layernorm
-    if not skip_layernorm:
-        copy_layernorm(src1.LayerNorm, src2.LayerNorm, tgt.LayerNorm)
+    # # Layernorm
+    # if not skip_layernorm:
+    #     copy_layernorm(src1.LayerNorm, src2.LayerNorm, tgt.LayerNorm)
 
 
 def make_dummy_model(src1: Type[BertModel], tgt: Type[BertModel], epsilon: float):
@@ -240,11 +245,15 @@ def stitch(
         tgt = tgt.bert
 
     # Embeddings
-    copy_embeddings(src1.embeddings, src2.embeddings, tgt.embeddings, skip_layernorm)
+    copy_embeddings(src1.embeddings, src2.embeddings, tgt.embeddings)
 
     # Copy transformer layers
     for layer_1, layer_2, layer_st in zip(src1.encoder.layer, src2.encoder.layer, tgt.encoder.layer):
         copy_layer(layer_1, layer_2, layer_st, epsilon, skip_layernorm)
 
+    # NOTE: copy final LayerNorm
+    if not skip_layernorm:
+        copy_layernorm(src1.encoder.FinalLayerNorm, src2.encoder.FinalLayerNorm, tgt.encoder.FinalLayerNorm)
+    
     # Pooler
-    copy_linear(src1.pooler.dense, src2.pooler.dense, tgt.pooler.dense, epsilon)
+    copy_linear(src1.pooler.dense_act, src2.pooler.dense_act, tgt.pooler.dense_act, epsilon)
