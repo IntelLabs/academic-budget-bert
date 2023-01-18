@@ -10,11 +10,14 @@ class StitchArguments:
     _argument_group_name = "Stitch Arguments"
     
     do_stitch: Optional[bool] = field(
-        default=False, metadata={"help": "weather to stitch two source models"}
+        default=False, metadata={"help": "whether to stitch two source models"}
     )
     src_model1_path: Optional[str] = field(
         default=None, metadata={"help": "Path to the first source pretrained model"},
     )
     src_model2_path: Optional[str] = field(
         default=None, metadata={"help": "Path to the second source pretrained model"},
+    )
+    skip_layernorm: Optional[bool] = field(
+        default=False, metadata={"help": "whether to skip layernorms"}
     )
