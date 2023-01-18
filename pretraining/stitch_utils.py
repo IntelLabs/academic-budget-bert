@@ -1,45 +1,68 @@
 """
-util functions to stitch ffn layers
+util functions to stitch two BertLMHeadModel models
 """
 import torch
 from torch import nn
+from apex.normalization.fused_layer_norm import FusedLayerNorm
 from typing import Type, Union
 
-from transformers import BertConfig, BertModel, BertForSequenceClassification
-from transformers.models.bert.modeling_bert import BertSelfAttention, BertEmbeddings, BertAttention, BertLayer
+from pretraining.modeling import (
+    BertLMHeadModel,
+    BertModel,
+    BertOnlyMLMHead,
+    BertEmbeddings,
+    BertAttention,
+    BertSelfAttention,
+    BertLayer,
+    LinearActivation,
+)
+from pretraining.configs import PretrainedBertConfig
 
 
 # TODO: merge this into StitchedBertConfig
-def check_if_stitchable(src1_cfg: Type[BertConfig], src2_cfg: Union[Type[BertConfig], None]) -> None:
+def check_if_stitchable(
+    src1_cfg: Type[PretrainedBertConfig],
+    src2_cfg: Union[Type[PretrainedBertConfig], None],
+) -> None:
     """
     Given two bert configs, check if the two models are stitchable
     Args:
-        src1_cfg (transformers.BertConfig): first source model config
-        src2_cfg (transformers.BertConfig or None): second source model config
+        src1_cfg (PretrainedBertConfig): first source model config
+        src2_cfg (PretrainedBertConfig or None): second source model config
     """
     # if src2 model is None, return
     if src2_cfg is None:
         return
 
     assert src1_cfg.vocab_size == src2_cfg.vocab_size, "vocab sizes should match"
-    assert src1_cfg.num_hidden_layers == src2_cfg.num_hidden_layers, "number of hidden layers should match"
     assert (
-        src1_cfg.hidden_size / src1_cfg.num_attention_heads == src2_cfg.hidden_size / src2_cfg.num_attention_heads
+        src1_cfg.num_hidden_layers == src2_cfg.num_hidden_layers
+    ), "number of hidden layers should match"
+    assert (
+        src1_cfg.hidden_size / src1_cfg.num_attention_heads
+        == src2_cfg.hidden_size / src2_cfg.num_attention_heads
     ), "attention head size should match"
 
 
-def copy_linear(src1: Type[nn.Linear], src2: Type[nn.Linear], tgt: Type[nn.Linear], epsilon: float) -> None:
+def copy_linear(
+    src1: Union[Type[nn.Linear], Type[LinearActivation]],
+    src2: Union[Type[nn.Linear], Type[LinearActivation]],
+    tgt: Union[Type[nn.Linear], Type[LinearActivation]],
+    epsilon: float,
+) -> None:
     """
     Diagonally copy the weights of the two source Linear layers to the target layer.
     Set non-diagonal parts to epsilon
     Args:
-        src1 (torch.nn.Linear): first source Linear layer
-        src2 (torch.nn.Linear): second source Linear layer
-        tgt (torch.nn.Linear): target Linear layer
+        src1 (torch.nn.Linear or LinearActivation): first source Linear layer
+        src2 (torch.nn.Linear or LinearActivation): second source Linear layer
+        tgt (torch.nn.Linear or LinearActivation): target Linear layer
         epsilon (float): float number to fill non-diagonal parts
     """
     # Check if bias exists
-    assert None not in (src1.bias, src2.bias, tgt.bias) or not any((src1.bias, src2.bias, tgt.bias))
+    assert None not in (src1.bias, src2.bias, tgt.bias) or not any(
+        (src1.bias, src2.bias, tgt.bias)
+    )
 
     src1_out_dim, src1_in_dim = src1.weight.size()
     src2_out_dim, src2_in_dim = src2.weight.size()
@@ -65,15 +88,23 @@ def copy_linear(src1: Type[nn.Linear], src2: Type[nn.Linear], tgt: Type[nn.Linea
         tgt.bias.data[-src2_out_dim:] = src2.bias.data
 
 
-def copy_layernorm(src1: Type[nn.LayerNorm], src2: Type[nn.LayerNorm], tgt: Type[nn.LayerNorm]) -> None:
+def copy_layernorm(
+    src1: Union[Type[nn.LayerNorm], Type[FusedLayerNorm]],
+    src2: Union[Type[nn.LayerNorm], Type[FusedLayerNorm]],
+    tgt: Union[Type[nn.LayerNorm], Type[FusedLayerNorm]],
+) -> None:
     """
     Copy the weights of the two source LayerNorm layers to the target layer
     Args:
-        src1 (torch.nn.LayerNorm): first source LayerNorm
-        src2 (torch.nn.LayerNorm): second source LayerNorm
-        src1 (torch.nn.LayerNorm): target LayerNorm
+        src1 (torch.nn.LayerNorm or apex FusedLayerNorm): first source LayerNorm
+        src2 (torch.nn.LayerNorm or apex FusedLayerNorm): second source LayerNorm
+        tgt (torch.nn.LayerNorm or apex FusedLayerNorm): target LayerNorm
     """
-    src1_dim, src2_dim, tgt_dim = src1.weight.size(0), src2.weight.size(0), tgt.weight.size(0)
+    src1_dim, src2_dim, tgt_dim = (
+        src1.weight.size(0),
+        src2.weight.size(0),
+        tgt.weight.size(0),
+    )
     assert tgt_dim == src1_dim + src2_dim
 
     # Copy weights
@@ -87,15 +118,18 @@ def copy_layernorm(src1: Type[nn.LayerNorm], src2: Type[nn.LayerNorm], tgt: Type
 
 
 def copy_self_attn(
-    src1: Type[BertSelfAttention], src2: Type[BertSelfAttention], tgt: Type[BertSelfAttention], epsilon: float
+    src1: Type[BertSelfAttention],
+    src2: Type[BertSelfAttention],
+    tgt: Type[BertSelfAttention],
+    epsilon: float,
 ) -> None:
     """
     Copy the linear projections of the two source BertSelfAttention modules to the target module
     Set the rest to epsilon
     Args:
-        src1 (transformers.models.bert.modeling_bert.BertSelfAttention): first source BertSelfAttention module
-        src2 (transformers.models.bert.modeling_bert.BertSelfAttention): second source BertSelfAttention module
-        tgt (transformers.models.bert.modeling_bert.BertSelfAttention): target BertSelfAttention module
+        src1 (BertSelfAttention): first source BertSelfAttention module
+        src2 (BertSelfAttention): second source BertSelfAttention module
+        tgt (BertSelfAttention): target BertSelfAttention module
         epsilon (float): float number to fill the rest
     """
     # copy linear layers of query, key, value
@@ -115,11 +149,11 @@ def copy_attention(
     Copy input/output linear projections and layernorm of the two source BertAttention modules to the target module
     Set the rest to epsilon
     Args:
-        src1 (transformers.models.bert.modeling_bert.BertAttention): first source BertAttention module
-        src2 (transformers.models.bert.modeling_bert.BertAttention): second source BertAttention module
-        tgt (transformers.models.bert.modeling_bert.BertAttention): target BertAttention module
+        src1 (BertAttention): first source BertAttention module
+        src2 (BertAttention): second source BertAttention module
+        tgt (BertAttention): target BertAttention module
         epsilon (float): float number to fill the rest
-        # skip_layernorm (bool): whether not to stich layernorms
+        # skip_layernorm (bool): whether not to stitch layernorms
     """
 
     # Key, query, value projections
@@ -134,7 +168,11 @@ def copy_attention(
 
 
 def copy_layer(
-    src1: Type[BertLayer], src2: Type[BertLayer], tgt: Type[BertLayer], epsilon: float, skip_layernorm: bool
+    src1: Type[BertLayer],
+    src2: Type[BertLayer],
+    tgt: Type[BertLayer],
+    epsilon: float,
+    skip_layernorm: bool,
 ) -> None:
     """
     Copy "" of the two source Bert layers to the target layer
@@ -143,36 +181,52 @@ def copy_layer(
         src2 (transformers.models.bert.modeling_bert.BertLayer): second source BertLayer
         tgt (transformers.models.bert.modeling_bert.BertLayer): target BertLayer
         epsilon (float): float number to fill the rest
-        # skip_layernorm (bool): whether not to stitch layernorms
+        skip_layernorm (bool): whether not to stitch layernorms
     """
     # Multihead attentions
     copy_attention(src1.attention, src2.attention, tgt.attention, epsilon)
 
     # Intermediate ffn
-    copy_linear(src1.intermediate.dense_act, src2.intermediate.dense_act, tgt.intermediate.dense_act, epsilon)
+    copy_linear(
+        src1.intermediate.dense_act,
+        src2.intermediate.dense_act,
+        tgt.intermediate.dense_act,
+        epsilon,
+    )
 
     # Output ffn
     copy_linear(src1.output.dense, src2.output.dense, tgt.output.dense, epsilon)
-    # # No output layernorm
+    # # NOTE: No output layernorm
     # if not skip_layernorm:
     #     copy_layernorm(src1.output.LayerNorm, src2.output.LayerNorm, tgt.output.LayerNorm)
 
-    # NOTE: copy both PreAttentionLayerNorm, PostAttentionLayerNorm
+    # copy both PreAttentionLayerNorm, PostAttentionLayerNorm
     if not skip_layernorm:
-        copy_layernorm(src1.PreAttentionLayerNorm, src2.PreAttentionLayerNorm, tgt.PreAttentionLayerNorm)
-        copy_layernorm(src1.PostAttentionLayerNorm, src2.PostAttentionLayerNorm, tgt.PostAttentionLayerNorm)
+        copy_layernorm(
+            src1.PreAttentionLayerNorm,
+            src2.PreAttentionLayerNorm,
+            tgt.PreAttentionLayerNorm,
+        )
+        copy_layernorm(
+            src1.PostAttentionLayerNorm,
+            src2.PostAttentionLayerNorm,
+            tgt.PostAttentionLayerNorm,
+        )
+
 
 def copy_embeddings(
-    src1: Type[BertEmbeddings], src2: Type[BertEmbeddings], tgt: Type[BertEmbeddings], 
+    src1: Type[BertEmbeddings],
+    src2: Type[BertEmbeddings],
+    tgt: Type[BertEmbeddings],
     # skip_layernorm: bool
 ) -> None:
     """
     Copy embeddings and layernorm of the two source BertEmbeddings modules to the target module
     Args:
-        src1 (transformers.models.bert.modeling_bert.BertEmbeddings): first source BertEmbeddings module
-        src2 (transformers.models.bert.modeling_bert.BertEmbeddings): second source BertEmbeddings module
-        tgt (transformers.models.bert.modeling_bert.BertEmbeddings): target BertEmbeddings module
-        # skip_layernorm (bool): whether not to stich layernorms
+        src1 (BertEmbeddings): first source BertEmbeddings module
+        src2 (BertEmbeddings): second source BertEmbeddings module
+        tgt (BertEmbeddings): target BertEmbeddings module
+        # skip_layernorm (bool): whether not to stitch layernorms
     """
     # Embeddings
     embed_types = ["word_embeddings", "position_embeddings", "token_type_embeddings"]
@@ -185,20 +239,102 @@ def copy_embeddings(
             dim=-1,
         )
 
-    # # Layernorm
+    # # Embedding layernorm
     # if not skip_layernorm:
     #     copy_layernorm(src1.LayerNorm, src2.LayerNorm, tgt.LayerNorm)
 
 
-def make_dummy_model(src1: Type[BertModel], tgt: Type[BertModel], epsilon: float):
+def copy_bert(
+    src1: Type[BertModel],
+    src2: Type[BertModel],
+    tgt: Type[BertModel],
+    skip_layernorm: bool,
+    epsilon: float,
+) -> None:
+    """Copy two source BertModels to the target BertModel
+    Args:
+        src1 (BertModel): first source BertModel
+        src2 (BertModel): second source BertModel
+        tgt (BertModel): target BertModel
+        skip_layernorm (bool): whether not to stitch layernorms
+        epsilon (float): float number to fill the rest
+    """
+
+    # Embeddings
+    copy_embeddings(src1.embeddings, src2.embeddings, tgt.embeddings)
+
+    # Copy transformer layers
+    for layer_1, layer_2, layer_st in zip(
+        src1.encoder.layer, src2.encoder.layer, tgt.encoder.layer
+    ):
+        copy_layer(layer_1, layer_2, layer_st, epsilon, skip_layernorm)
+
+    # NOTE: copy final LayerNorm
+    if not skip_layernorm:
+        copy_layernorm(
+            src1.encoder.FinalLayerNorm,
+            src2.encoder.FinalLayerNorm,
+            tgt.encoder.FinalLayerNorm,
+        )
+
+    # Pooler
+    copy_linear(
+        src1.pooler.dense_act, src2.pooler.dense_act, tgt.pooler.dense_act, epsilon
+    )
+
+
+def copy_mlm_head(
+    src1: Type[BertOnlyMLMHead],
+    src2: Type[BertOnlyMLMHead],
+    tgt: Type[BertOnlyMLMHead],
+    skip_layernorm: bool,
+    epsilon: float,
+) -> None:
+    """Copy two source BertOnlyMLMHead to the target BertOnlyMLMHead
+
+    Args:
+        src1 (BertOnlyMLMHead): first source BertOnlyMLMHead
+        src2 (BertOnlyMLMHead): second source BertOnlyMLMHead
+        tgt (BertOnlyMLMHead): target BertOnlyMLMHead
+        skip_layernorm (bool): whether not to stitch layernorms
+        epsilon (float): float number to fill the rest
+    """
+    # copy BertPredictionHeadTransform
+    copy_linear(
+        src1.predictions.transform.dense_act,
+        src2.predictions.transform.dense_act,
+        tgt.predictions.transform.dense_act,
+        epsilon,
+    )
+    if not skip_layernorm:
+        copy_layernorm(
+            src1.predictions.transform.LayerNorm,
+            src2.predictions.transform.LayerNorm,
+            tgt.predictions.transform.LayerNorm,
+        )
+
+    # copy decoder of BertLMPredictionHead
+    # concat along the last axis, size: hidden_size x vocab_size
+    tgt.predictions.decoder.weight.data[:] = torch.cat(
+        (
+            src1.predictions.decoder.weight.data,
+            src2.predictions.decoder.weight.data,
+        ),
+        dim=-1,
+    )
+
+
+def make_dummy_model(
+    src1: Type[BertLMHeadModel], tgt: Type[BertLMHeadModel], epsilon: float
+):
     """
     Make dummy model to which can be stitched with src1 to make tgt
     Args:
-        src1 (transformer.BertModel): source model to stitch
-        tgt (transformer.BertModel): stitched target model
+        src1 (BertLMHeadModel): source model to stitch
+        tgt (BertLMHeadModel): stitched target model
         epsilon (float): float number to fill dummy model
     """
-    dummy_cfg = BertConfig(**src1.config.to_dict())
+    dummy_cfg = PretrainedBertConfig(**src1.config.to_dict())
 
     # update config
     dummy_cfg._name_or_path = "dummy"
@@ -219,15 +355,18 @@ def make_dummy_model(src1: Type[BertModel], tgt: Type[BertModel], epsilon: float
 
 
 def stitch(
-    src1: Type[BertModel], src2: Union[Type[BertModel], None], tgt: Type[BertModel], skip_layernorm: bool
+    src1: Type[BertLMHeadModel],
+    src2: Union[Type[BertLMHeadModel], None],
+    tgt: Type[BertLMHeadModel],
+    skip_layernorm: bool,
 ) -> None:
     """
     Stitch two Bert models by copying the internal weights
     Args:
-        src1 (transformer.BertModel): first source model to stitch
-        src2 (transformer.BertModel or None): second source model to stitch, if None, only copy the first model
-        tgt (transformer.BertModel): stitched target model
-        skip_layernorm (bool): whether not to stich layernorms
+        src1 (BertLMHeadModel): first source model to stitch
+        src2 (BertLMHeadModel or None): second source model to stitch, if None, only copy the first model
+        tgt (BertLMHeadModel): stitched target model
+        skip_layernorm (bool): whether not to stitch layernorms
     """
     epsilon = tgt.config.epsilon
 
@@ -238,22 +377,8 @@ def stitch(
     # check if two models are stitchable
     check_if_stitchable(src1.config, src2.config)
 
-    # for sequence classification
-    if isinstance(src1, BertForSequenceClassification):
-        src1 = src1.bert
-        src2 = src2.bert
-        tgt = tgt.bert
+    # copy BertModel
+    copy_bert(src1.bert, src2.bert, tgt.bert, skip_layernorm, epsilon)
 
-    # Embeddings
-    copy_embeddings(src1.embeddings, src2.embeddings, tgt.embeddings)
-
-    # Copy transformer layers
-    for layer_1, layer_2, layer_st in zip(src1.encoder.layer, src2.encoder.layer, tgt.encoder.layer):
-        copy_layer(layer_1, layer_2, layer_st, epsilon, skip_layernorm)
-
-    # NOTE: copy final LayerNorm
-    if not skip_layernorm:
-        copy_layernorm(src1.encoder.FinalLayerNorm, src2.encoder.FinalLayerNorm, tgt.encoder.FinalLayerNorm)
-    
-    # Pooler
-    copy_linear(src1.pooler.dense_act, src2.pooler.dense_act, tgt.pooler.dense_act, epsilon)
+    # copy BertOnlyMLMHead
+    copy_mlm_head(src1.cls, src2.cls, tgt.cls, skip_layernorm, epsilon)
