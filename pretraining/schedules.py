@@ -27,7 +27,9 @@ def build_scheduler(optimizer, scheduler, curver):
             warmup_position = scheduler.get_warmup_percent(position)
             return curver.get_warmup(warmup_position)
         else:
-            return curver.get_decay(scheduler.get_total(), position, scheduler.get_total_warmup())
+            return curver.get_decay(
+                scheduler.get_total(), position, scheduler.get_total_warmup()
+            )
 
     return LambdaLR(optimizer, get_warmup_calc, last_epoch=-1)
 
@@ -45,7 +47,7 @@ class ExpCurve:
         self.schedule_args = schedule_args
 
     def get_warmup(self, value):
-        return value ** 2
+        return value**2
 
     def get_decay(self, total, current, total_warmup):
         return self.schedule_args.decay_rate ** (
@@ -101,7 +103,11 @@ class TimeScheduler(BaseScheduler):
 
 CURVES = {"linear": lambda args: LinearCurve(), "exp": lambda args: ExpCurve(args)}
 
-SCHEDULES = {"step": StepScheduler, "constant_step": FixedWarmupScheduler, "time": TimeScheduler}
+SCHEDULES = {
+    "step": StepScheduler,
+    "constant_step": FixedWarmupScheduler,
+    "time": TimeScheduler,
+}
 
 
 def get_scheduler(schedule_args, optimizer, extra_args):

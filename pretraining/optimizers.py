@@ -25,7 +25,9 @@ def get_lamb(optimizer_args, lr, model_params):
     try:
         import deepspeed
     except ImportError or ModuleNotFoundError:
-        logger.info("Deepspeed not installed. To use Lamb optimizer please install Deepspeed")
+        logger.info(
+            "Deepspeed not installed. To use Lamb optimizer please install Deepspeed"
+        )
         raise
 
     from deepspeed.ops.lamb import FusedLamb

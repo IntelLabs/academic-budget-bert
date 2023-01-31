@@ -18,7 +18,6 @@
 import json
 import logging
 import os
-import random
 import time
 from argparse import Namespace
 from pretraining.args.dataset_args import PreTrainDatasetArguments
@@ -31,7 +30,10 @@ from pretraining.base import BasePretrainModel
 from pretraining.dataset.distributed_pretraining_dataset import (
     PreTrainingDataset as DistPreTrainingDataset,
 )
-from pretraining.dataset.pretraining_dataset import PreTrainingDataset, ValidationDataset
+from pretraining.dataset.pretraining_dataset import (
+    PreTrainingDataset,
+    ValidationDataset,
+)
 from pretraining.optimizers import get_optimizer
 from pretraining.schedules import get_scheduler
 from pretraining.utils import (
@@ -43,6 +45,10 @@ from pretraining.utils import (
     set_seeds,
 )
 from timeit import default_timer as get_now
+
+# for stitching
+from pretraining.args.stitch_args import StitchArguments
+from pretraining.stitch_utils import stitch
 
 import deepspeed
 import numpy as np
@@ -119,7 +125,7 @@ def pretrain_validation(args, model, validation_dataset, step):
     if master_process(args):
         if _has_wandb:
             log_info = {
-                f"Validation/Loss": eval_loss,
+                "Validation/Loss": eval_loss,
             }
             wandb.log(log_info, step=step)
     del dataset
@@ -145,7 +151,13 @@ def create_finetune_job(args, index, global_step, model):
 
 
 def train(
-    args, index, model, optimizer, lr_scheduler, pretrain_dataset_provider, validation_dataset=None
+    args,
+    index,
+    model,
+    optimizer,
+    lr_scheduler,
+    pretrain_dataset_provider,
+    validation_dataset=None,
 ):
     global global_step
     global global_data_samples
@@ -165,7 +177,9 @@ def train(
     eval_loss = None
     scale_counter_at_1 = 0
 
-    for batch_index_number, batch_index in enumerate(tqdm(dataset_iterator, smoothing=1)):
+    for batch_index_number, batch_index in enumerate(
+        tqdm(dataset_iterator, smoothing=1)
+    ):
 
         if batch_index_number > args.max_steps_per_epoch:
             logger.info("Max steps per epochs reached. Resuming to next epoch ...")
@@ -184,7 +198,9 @@ def train(
             total_loss = model.forward(batch)
 
             unscaled_loss = total_loss.item()
-            current_data_sample_count += args.train_micro_batch_size_per_gpu * dist.get_world_size()
+            current_data_sample_count += (
+                args.train_micro_batch_size_per_gpu * dist.get_world_size()
+            )
 
             # Prefetch training data
             pretrain_dataset_provider.prefetch_batch()
@@ -237,7 +253,8 @@ def train(
             )
             logger.info(
                 "At step {}, the throughput is {:2f} Samples/s".format(
-                    global_step * args.gradient_accumulation_steps, one_step_bs / all_step_time
+                    global_step * args.gradient_accumulation_steps,
+                    one_step_bs / all_step_time,
                 )
             )
             all_step_time = 0.0
@@ -254,7 +271,9 @@ def train(
     if validation_dataset is not None and scale_counter_at_1 < args.scale_cnt_limit:
         time_diff = get_time_diff_hours(get_now(), args.exp_start_marker)
         if should_run_validation(time_diff, args, epoch=index):
-            eval_loss = pretrain_validation(args, model, validation_dataset, global_step)
+            eval_loss = pretrain_validation(
+                args, model, validation_dataset, global_step
+            )
 
     logger.info(f"Epoch {index}: check if time to save a fine-tune checkpoint")
     if (
@@ -297,14 +316,14 @@ def report_metrics(args, lr, loss, step, data_sample_count):
     if master_process(args):
         if _has_wandb:
             log_info = {
-                f"train/lr": current_lr,
-                f"train/train_loss": loss,
+                "train/lr": current_lr,
+                "train/train_loss": loss,
             }
             wandb.log(log_info, step=step)
             samp_info = {
-                f"Train/Samples/train_loss": loss,
-                f"Train/Samples/lr": current_lr,
-                f"Train/total_samples": data_sample_count,
+                "Train/Samples/train_loss": loss,
+                "Train/Samples/lr": current_lr,
+                "Train/total_samples": data_sample_count,
             }
             wandb.log(samp_info, commit=False)
 
@@ -332,6 +351,7 @@ def get_arguments():
             OptimizerArguments,
             PretrainScriptParamsArguments,
             SchedulerArgs,
+            StitchArguments,
         )
     )
 
@@ -343,9 +363,10 @@ def get_arguments():
         optimizer_args,
         train_args,
         schedule_args,
+        stitch_args,
     ) = parser.parse_args_into_dataclasses()
 
-    args = merge_args([ds_args, model_args, dataset_args, train_args])
+    args = merge_args([ds_args, model_args, dataset_args, train_args, stitch_args])
     args.model_config = vars(model_config_args)
     args.optimizer_args = optimizer_args
     args.schedule_args = schedule_args
@@ -400,7 +421,9 @@ def parse_arguments():
     logger.info(f"Running Config File: {args.job_name}")
     logger.info(f"Args = {args}")
     os.makedirs(args.output_dir, exist_ok=True)
-    args.saved_model_path = os.path.join(args.output_dir, args.job_name, args.current_run_id)
+    args.saved_model_path = os.path.join(
+        args.output_dir, args.job_name, args.current_run_id
+    )
     return args
 
 
@@ -410,26 +433,33 @@ def prepare_optimizer_parameters(args, model):
     no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
         {
-            "params": [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
+            "params": [
+                p for n, p in param_optimizer if not any(nd in n for nd in no_decay)
+            ],
             "weight_decay": args.optimizer_args.weight_decay,
         },
         {
-            "params": [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
+            "params": [
+                p for n, p in param_optimizer if any(nd in n for nd in no_decay)
+            ],
             "weight_decay": 0.0,
         },
     ]
     return optimizer_grouped_parameters
 
 
-def prepare_model_and_optimizer(args):
-    # Load Pre-training Model skeleton + supplied model config
-    model = BasePretrainModel(args)
+def prepare_model_and_optimizer(args, model=None):
+    # Load Pre-training Model skeleton if not given + supplied model config
+    if model is None:
+        model = BasePretrainModel(args)
 
     # Optimizer parameters
     optimizer_grouped_parameters = model.prepare_optimizer_parameters(
         args.optimizer_args.weight_decay
     )
-    optimizer = get_optimizer(args.optimizer_args, args.lr, optimizer_grouped_parameters)
+    optimizer = get_optimizer(
+        args.optimizer_args, args.lr, optimizer_grouped_parameters
+    )
     lr_scheduler = get_scheduler(args.schedule_args, optimizer, args)
 
     # DeepSpeed initializer handles FP16, distributed, optimizer automatically.
@@ -454,6 +484,44 @@ def prepare_model_and_optimizer(args):
     args.fp16 = model.network.fp16_enabled()
 
     return model, optimizer, lr_scheduler
+
+
+def stitch_models(args):
+    """
+    Prepare stitched model
+    - first source model: args.src_model1_path
+    - second source model: args.src_model2_path
+    """
+    # Load two pre-training model skeletons + supplied model config
+    src_model1 = BasePretrainModel(args)
+    src_model2 = BasePretrainModel(args)
+
+    # checkpoint: OrderedDict with model params
+    checkpoint1 = torch.load(args.src_model1_path + "pytorch_model.bin")
+    src_model1.network.load_state_dict(checkpoint1)
+
+    checkpoint2 = torch.load(args.src_model2_path + "pytorch_model.bin")
+    src_model2.network.load_state_dict(checkpoint2)
+
+    # # load the last checkpoint
+    # last_checkpoint_path1 = '/n/tata_ddos_ceph/woojeong/saved_models/pretrain/training-out-halflarge/halflarge_pretraining-0/0/latest_checkpoint/mp_rank_00_model_states.pt'
+    # last_checkpoint = torch.load(last_checkpoint_path1)['module']
+
+    # define stitched model skeleton
+    stitched_model = BasePretrainModel(args, model_type="stitched-bert-mlm")
+
+    # stitch two source models
+    stitch(
+        src_model1.network,
+        src_model2.network,
+        stitched_model.network,
+        skip_layernorm=args.skip_layernorm,
+    )
+
+    del src_model1
+    del src_model2
+
+    return stitched_model
 
 
 def check_if_early_stop(eval_loss, scale_counter, args):
@@ -529,7 +597,10 @@ def start_training(args, model, optimizer, lr_scheduler, start_epoch):
         )
 
         # check if training reached a stopping point
-        if is_time_to_exit(get_now(), args=args, global_steps=global_step) or should_early_stop:
+        if (
+            is_time_to_exit(get_now(), args=args, global_steps=global_step)
+            or should_early_stop
+        ):
             logger.info(
                 f"Warning: Early training termination due to max steps limit or time limit, \
                     epoch={index}, global_step={global_step}"
@@ -542,7 +613,9 @@ def start_training(args, model, optimizer, lr_scheduler, start_epoch):
             and args.num_epochs_between_checkpoints > 0
             and index % args.num_epochs_between_checkpoints == 0
         ):
-            logger.info(f"Process rank - {dist.get_rank()} - attempting to save checkpoint")
+            logger.info(
+                f"Process rank - {dist.get_rank()} - attempting to save checkpoint"
+            )
             save_training_checkpoint(
                 model,
                 model_path=args.saved_model_path,
@@ -617,14 +690,17 @@ def save_training_checkpoint(
         "epoch": epoch,
         "last_global_step": last_global_step,
         "last_global_data_samples": last_global_data_samples,
-        "exp_time_marker": get_now() - exp_start_marker,  ## save total training time in seconds
+        "exp_time_marker": get_now()
+        - exp_start_marker,   # save total training time in seconds
     }
     if _has_wandb and dist.get_rank() == 0:
         checkpoint_state_dict.update({"run_id": wandb.run.id})
     # Add extra kwargs too
     checkpoint_state_dict.update(kwargs)
 
-    status_msg = "checkpointing training model: PATH={}, ckpt_id={}".format(model_path, ckpt_id)
+    status_msg = "checkpointing training model: PATH={}, ckpt_id={}".format(
+        model_path, ckpt_id
+    )
     # save_checkpoint is DS method
     success = model.network.save_checkpoint(
         model_path, tag=ckpt_id, client_state=checkpoint_state_dict
@@ -649,7 +725,13 @@ def load_training_checkpoint(model, model_path, ckpt_id):
     total_seconds_training = checkpoint_state_dict["exp_time_marker"]
     wandb_run_id = checkpoint_state_dict.get("run_id", None)
     del checkpoint_state_dict
-    return (epoch, last_global_step, last_global_data_samples, total_seconds_training, wandb_run_id)
+    return (
+        epoch,
+        last_global_step,
+        last_global_data_samples,
+        total_seconds_training,
+        wandb_run_id,
+    )
 
 
 def prepare_resuming_checkpoint(args, model):
@@ -685,13 +767,21 @@ def main():
     start_time = time.time()
     args = parse_arguments()
     args.exp_start_marker = get_now()
-    model, optimizer, lr_scheduler = prepare_model_and_optimizer(args)
+
+    if args.do_stitch:
+        # pass a stitched model as an argument
+        model, optimizer, lr_scheduler = prepare_model_and_optimizer(
+            args, model=stitch_models(args)
+        )
+    else:
+        model, optimizer, lr_scheduler = prepare_model_and_optimizer(args)
 
     start_epoch = 0
     wandb_run_id = None
 
     # Load a checkpoint if resuming training
     if args.load_training_checkpoint is not None:
+        # this updates model weights
         start_epoch, wandb_run_id = prepare_resuming_checkpoint(args, model)
 
     # setup W&B logging

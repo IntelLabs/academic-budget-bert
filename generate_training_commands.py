@@ -50,7 +50,8 @@ def get_hyper_param_combinations_grid(parameters_json):
 
     params_combinations = list(product(*all_params_list))
     params_combinations_named = [
-        {map_index_name[i]: value for i, value in enumerate(comb)} for comb in params_combinations
+        {map_index_name[i]: value for i, value in enumerate(comb)}
+        for comb in params_combinations
     ]
     params_combinations_named = add_run_id_per_command(params_combinations_named)
     return params_combinations_named
@@ -86,7 +87,9 @@ def add_default_params(parameters_json, job_name):
     return parameters_json
 
 
-def get_command_per_combination(command_init, parameters_json, params_combinations_named):
+def get_command_per_combination(
+    command_init, parameters_json, params_combinations_named
+):
     all_commands = []
     command_default = get_command_from_params(parameters_json["default_parameters"])
 
@@ -101,7 +104,9 @@ def get_command_per_combination(command_init, parameters_json, params_combinatio
 def create_experiments(command_init, param_file, job_name, search_type="grid"):
     parameters_json = get_yaml(param_file)
     parameters_json = add_default_params(parameters_json, job_name)
-    params_combinations_named = get_hyper_param_combinations(parameters_json, search_type)
+    params_combinations_named = get_hyper_param_combinations(
+        parameters_json, search_type
+    )
     all_commands = get_command_per_combination(
         command_init, parameters_json, params_combinations_named
     )
@@ -111,14 +116,18 @@ def create_experiments(command_init, param_file, job_name, search_type="grid"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--param_file", help="Hyperparameter and configuration yaml", required=True)
+    parser.add_argument(
+        "--param_file", help="Hyperparameter and configuration yaml", required=True
+    )
     parser.add_argument("--job_name", help="job name", default="bert_large_experiment")
     parser.add_argument(
         "--init_cmd",
         help="initialization command (deepspeed or python directly)",
         default="deepspeed run_pretraining.py",
     )
-    parser.add_argument("--search_type", help="hyperparameter search method", default="grid")
+    parser.add_argument(
+        "--search_type", help="hyperparameter search method", default="grid"
+    )
     args = parser.parse_args()
 
     create_experiments(args.init_cmd, args.param_file, args.job_name, args.search_type)

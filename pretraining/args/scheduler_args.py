@@ -41,7 +41,9 @@ class SchedulerArgs:
         },
     )
 
-    warmup_proportion: Optional[float] = field(default=0.06, metadata={"help": "Warmup proportion"})
+    warmup_proportion: Optional[float] = field(
+        default=0.06, metadata={"help": "Warmup proportion"}
+    )
     decay_rate: Optional[float] = field(default=0.99, metadata={"help": "Decay rate"})
     decay_step: Optional[int] = field(default=1000, metadata={"help": "Decay step"})
     num_warmup_steps: Optional[int] = field(

@@ -21,7 +21,11 @@ import os
 
 from transformers import BertTokenizer, RobertaTokenizer
 
-from pretraining.configs import PretrainedBertConfig, PretrainedRobertaConfig
+from pretraining.configs import (
+    PretrainedBertConfig,
+    PretrainedRobertaConfig,
+    StitchedPretrainedBertConfig,
+)
 from pretraining.modeling import BertForPreTraining, BertLMHeadModel
 from pretraining.utils import to_sanitized_dict
 
@@ -32,6 +36,7 @@ MODELS = {
     "bert-mlm": (BertLMHeadModel, PretrainedBertConfig, BertTokenizer),
     "bert-mlm-roberta": (BertLMHeadModel, PretrainedRobertaConfig, RobertaTokenizer),
     "bert-mlm-nsp": (BertForPreTraining, PretrainedBertConfig, BertTokenizer),
+    "stitched-bert-mlm": (BertLMHeadModel, StitchedPretrainedBertConfig, BertTokenizer),
 }
 
 
@@ -49,6 +54,8 @@ class BasePretrainModel(object):
             # getting default model type from args
             model_type = args.model_type
         assert model_type in MODELS, f"model_type {model_type} is not supported"
+
+        # BertLMHeadModel, PretrainedBertConfig, BertTokenizer
         model_cls, config_cls, token_cls = MODELS[model_type]
 
         self.args = args
@@ -56,15 +63,25 @@ class BasePretrainModel(object):
 
         if not tokenizer:
             if model_name_or_path is None:
-                loading_path = args.tokenizer_name
-                logger.info(f"Loading default tokenizer {loading_path}")
+                if args.load_tokenizer_locally:
+                    local_cache_path = (
+                        "/n/home05/wk247/workspace/academic-budget-bert/local_cache/"
+                    )
+                    loading_path = os.path.join(local_cache_path, args.tokenizer_name)
+                    logger.info(
+                        f"loading pretrained tokenizer locally from {loading_path}"
+                    )
+                else:
+                    # download tokenizer
+                    loading_path = args.tokenizer_name
+                    logger.info(f"Loading default tokenizer {loading_path}")
             else:
                 loading_path = model_name_or_path
             tokenizer = token_cls.from_pretrained(loading_path)
 
         if not config:
             if model_name_or_path is None:
-                logger.info(f"Loading config from args")
+                logger.info("Loading config from args")
                 config = config_cls(**args.model_config)
                 config = self._init_vocab_size(config)
             else:
@@ -135,11 +152,15 @@ class BasePretrainModel(object):
         no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
             {
-                "params": [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
+                "params": [
+                    p for n, p in param_optimizer if not any(nd in n for nd in no_decay)
+                ],
                 "weight_decay": weight_decay,
             },
             {
-                "params": [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
+                "params": [
+                    p for n, p in param_optimizer if any(nd in n for nd in no_decay)
+                ],
                 "weight_decay": 0.0,
             },
         ]

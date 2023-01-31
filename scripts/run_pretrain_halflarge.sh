@@ -1,17 +1,14 @@
-# Script to reproduce original 24H bert
-# Train for ~25k steps with 4 Titan-RTX gpus
+# Script to pretrain a half-large model
+# Train for ~10k steps with 1 Titan-RTX gpu
 
 export WANDB_MODE=online
-export CUDA_VISIBLE_DEVICES=0,1,2,3
-# to use only one gpu, run
-# deepspeed --include localhost:0 --master_port 29500 run_pretraining.py \
-deepspeed --num_gpus 4 run_pretraining.py \
+deepspeed --include localhost:0 --master_port 29500 run_pretraining.py \
   --model_type bert-mlm --tokenizer_name bert-large-uncased \
   --hidden_act gelu \
-  --hidden_size 1024 \
+  --hidden_size 512 \
   --num_hidden_layers 24 \
-  --num_attention_heads 16 \
-  --intermediate_size 4096 \
+  --num_attention_heads 8 \
+  --intermediate_size 2048 \
   --hidden_dropout_prob 0.1 \
   --attention_probs_dropout_prob 0.1 \
   --encoder_ln_mode pre-ln \
@@ -29,12 +26,12 @@ deepspeed --num_gpus 4 run_pretraining.py \
   --adam_eps 1e-6 \
   --total_training_time 48.0 \
   --early_exit_time_marker 48.0 \
-  --dataset_path /n/tata_ddos_ceph/woojeong/data/enwiki_books_128_20/total \
+  --dataset_path /n/tata_ddos_ceph/woojeong/data/enwiki_books_128_20/set0 \
   --output_dir /n/tata_ddos_ceph/woojeong/saved_models/pretrain/ \
   --print_steps 100 \
   --num_epochs_between_checkpoints 10000 \
-  --job_name large-clone \
-  --current_run_id default \
+  --job_name halflarge \
+  --current_run_id 0 \
   --project_name budget-bert-pretraining \
   --validation_epochs 3 \
   --validation_epochs_begin 1 \
@@ -49,5 +46,4 @@ deepspeed --num_gpus 4 run_pretraining.py \
   --early_stop_time 180 \
   --early_stop_eval_loss 6 \
   --seed 42 \
-  --fp16 \
-  --max_steps_per_epoch 1100
+  --fp16
