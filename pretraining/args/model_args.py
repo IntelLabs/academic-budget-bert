@@ -44,6 +44,9 @@ class ModelArguments:
         default=None,
         metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"},
     )
+    load_tokenizer_locally: Optional[bool] = field(
+        default=False, metadata={"help": "if https connection is blocked, load tokenizer locally"}
+    )
     cache_dir: Optional[str] = field(
         default=None,
         metadata={"help": "Where do you want to store the pretrained models downloaded from s3"},

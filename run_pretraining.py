@@ -44,6 +44,10 @@ from pretraining.utils import (
 )
 from timeit import default_timer as get_now
 
+# for stitching
+from pretraining.args.stitch_args import StitchArguments
+from pretraining.stitch_utils import stitch
+
 import deepspeed
 import numpy as np
 import torch
@@ -332,6 +336,7 @@ def get_arguments():
             OptimizerArguments,
             PretrainScriptParamsArguments,
             SchedulerArgs,
+            StitchArguments,
         )
     )
 
@@ -343,9 +348,10 @@ def get_arguments():
         optimizer_args,
         train_args,
         schedule_args,
+        stitch_args,
     ) = parser.parse_args_into_dataclasses()
 
-    args = merge_args([ds_args, model_args, dataset_args, train_args])
+    args = merge_args([ds_args, model_args, dataset_args, train_args, stitch_args])
     args.model_config = vars(model_config_args)
     args.optimizer_args = optimizer_args
     args.schedule_args = schedule_args
@@ -421,9 +427,10 @@ def prepare_optimizer_parameters(args, model):
     return optimizer_grouped_parameters
 
 
-def prepare_model_and_optimizer(args):
-    # Load Pre-training Model skeleton + supplied model config
-    model = BasePretrainModel(args)
+def prepare_model_and_optimizer(args, model=None):
+    # Load Pre-training Model skeleton if not given + supplied model config
+    if model is None:
+        model = BasePretrainModel(args)
 
     # Optimizer parameters
     optimizer_grouped_parameters = model.prepare_optimizer_parameters(
@@ -454,6 +461,44 @@ def prepare_model_and_optimizer(args):
     args.fp16 = model.network.fp16_enabled()
 
     return model, optimizer, lr_scheduler
+
+
+def stitch_models(args):
+    """
+    Prepare stitched model
+    - first source model: args.src_model1_path
+    - second source model: args.src_model2_path   
+    """
+    # Load two pre-training model skeletons + supplied model config
+    src_model1 = BasePretrainModel(args)
+    src_model2 = BasePretrainModel(args)
+   
+    # checkpoint: OrderedDict with model params
+    checkpoint1 = torch.load(args.src_model1_path + 'pytorch_model.bin')
+    src_model1.network.load_state_dict(checkpoint1)
+   
+    checkpoint2 = torch.load(args.src_model2_path + 'pytorch_model.bin')
+    src_model2.network.load_state_dict(checkpoint2)
+   
+    # # load the last checkpoint
+    # last_checkpoint_path1 = '/n/tata_ddos_ceph/woojeong/saved_models/pretrain/training-out-halflarge/halflarge_pretraining-0/0/latest_checkpoint/mp_rank_00_model_states.pt'
+    # last_checkpoint = torch.load(last_checkpoint_path1)['module']
+       
+    # define stitched model skeleton
+    stitched_model = BasePretrainModel(args, model_type="stitched-bert-mlm")
+   
+    # stitch two source models
+    stitch(
+        src_model1.network,
+        src_model2.network,
+        stitched_model.network,
+        skip_layernorm=args.skip_layernorm
+    )
+    
+    del src_model1
+    del src_model2
+    
+    return stitched_model
 
 
 def check_if_early_stop(eval_loss, scale_counter, args):
@@ -685,15 +730,21 @@ def main():
     start_time = time.time()
     args = parse_arguments()
     args.exp_start_marker = get_now()
-    model, optimizer, lr_scheduler = prepare_model_and_optimizer(args)
-
+   
+    if args.do_stitch:
+        # pass a stitched model as an argument
+        model, optimizer, lr_scheduler = prepare_model_and_optimizer(args, model=stitch_models(args))
+    else:
+        model, optimizer, lr_scheduler = prepare_model_and_optimizer(args)
+    
     start_epoch = 0
     wandb_run_id = None
 
     # Load a checkpoint if resuming training
     if args.load_training_checkpoint is not None:
+        # this updates model weights
         start_epoch, wandb_run_id = prepare_resuming_checkpoint(args, model)
-
+    
     # setup W&B logging
     setup_wandb(args, model.network, resume_id=wandb_run_id)
 

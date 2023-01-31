@@ -67,8 +67,8 @@ class PretrainedBertConfig(BertConfig):
         self.layernorm_embedding = layernorm_embedding
 
 
-class StitchedBertConfig(PretrainedBertConfig):
-    model_type = "stitched_pretrained_bert"
+class StitchedPretrainedBertConfig(PretrainedBertConfig):
+    model_type = "stitched-bert"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -78,6 +78,7 @@ class StitchedBertConfig(PretrainedBertConfig):
         self.intermediate_size = self.intermediate_size * 2
         self.num_attention_heads = self.num_attention_heads * 2
         self.epsilon = kwargs.get("epsilon", 0)
+
 
 class PretrainedRobertaConfig(PretrainedBertConfig):
     model_type = "roberta"

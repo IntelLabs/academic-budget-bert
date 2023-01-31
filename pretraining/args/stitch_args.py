@@ -8,7 +8,7 @@ class StitchArguments:
     """
 
     _argument_group_name = "Stitch Arguments"
-    
+   
     do_stitch: Optional[bool] = field(
         default=False, metadata={"help": "whether to stitch two source models"}
     )
