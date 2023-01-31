@@ -38,8 +38,12 @@ class OptimizerArguments:
         },
     )
 
-    weight_decay: Optional[float] = field(default=0.01, metadata={"help": "weight_decay"})
-    bias_correction: Optional[bool] = field(default=False, metadata={"help": "bias_correction"})
+    weight_decay: Optional[float] = field(
+        default=0.01, metadata={"help": "weight_decay"}
+    )
+    bias_correction: Optional[bool] = field(
+        default=False, metadata={"help": "bias_correction"}
+    )
     max_coeff: Optional[float] = field(default=0.3, metadata={"help": "max_coeff"})
     min_coeff: Optional[float] = field(default=0.01, metadata={"help": "min_coeff"})
     adam_beta1: Optional[float] = field(default=0.9, metadata={"help": "adam beta1"})

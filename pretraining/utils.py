@@ -36,7 +36,10 @@ class Logger:
 
     def info(self, message, ignore_rank=False, *args, **kwargs):
         if (
-            not ignore_rank and self.cuda and dist.is_initialized() and dist.get_rank() == 0
+            not ignore_rank
+            and self.cuda
+            and dist.is_initialized()
+            and dist.get_rank() == 0
         ) or not self.cuda:
             self.logger.info(message, *args, **kwargs)
         if ignore_rank:
@@ -64,7 +67,10 @@ def is_time_to_exit(now, args, epoch_steps=0, global_steps=0):
     time_diff_hours = get_time_diff_hours(now, args.exp_start_marker)
 
     # if passed max_pretrain_hours, then exit
-    if time_diff_hours > args.total_training_time or time_diff_hours > args.early_exit_time_marker:
+    if (
+        time_diff_hours > args.total_training_time
+        or time_diff_hours > args.early_exit_time_marker
+    ):
         return True
 
     return (epoch_steps >= args.max_steps_per_epoch) or (global_steps >= args.max_steps)

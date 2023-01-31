@@ -26,10 +26,13 @@ class DeepspeedArguments:
 
     _argument_group_name = "Deepspeed Arguments"
 
-    deepspeed: Optional[bool] = field(default=False, metadata={"help": "Use deepspeed."})
+    deepspeed: Optional[bool] = field(
+        default=False, metadata={"help": "Use deepspeed."}
+    )
 
     deepspeed_transformer_kernel: Optional[bool] = field(
-        default=False, metadata={"help": "Use DeepSpeed transformer kernel to accelerate."}
+        default=False,
+        metadata={"help": "Use DeepSpeed transformer kernel to accelerate."},
     )
 
     stochastic_mode: Optional[bool] = field(
@@ -80,7 +83,9 @@ class DeepspeedArguments:
         default=None, metadata={"help": "gradient predivide factor"}
     )
 
-    fp16: Optional[bool] = field(default=False, metadata={"help": "Enable FP16 training"})
+    fp16: Optional[bool] = field(
+        default=False, metadata={"help": "Enable FP16 training"}
+    )
     fp16_backend: Optional[str] = field(
         default="ds",
         metadata={
@@ -88,7 +93,9 @@ class DeepspeedArguments:
             "help": "mixed precision backend (ds=deepspeed, apex=nvidia apex)",
         },
     )
-    fp16_opt: Optional[str] = field(default="O2", metadata={"help": "Apex optimization level"})
+    fp16_opt: Optional[str] = field(
+        default="O2", metadata={"help": "Apex optimization level"}
+    )
 
     def __post_init__(self):
         if self.deepspeed_transformer_kernel:
