@@ -1,6 +1,8 @@
+# Script to pretrain a half-large model
+# Train for ~10k steps with 1 Titan-RTX gpu
+
 export WANDB_MODE=online
-# deepspeed --num_gpus 4 run_pretraining.py \
-deepspeed --include localhost:0 --master_port 29503 run_pretraining.py \
+deepspeed --include localhost:0 --master_port 29500 run_pretraining.py \
   --model_type bert-mlm --tokenizer_name bert-large-uncased \
   --hidden_act gelu \
   --hidden_size 512 \
@@ -25,10 +27,10 @@ deepspeed --include localhost:0 --master_port 29503 run_pretraining.py \
   --total_training_time 48.0 \
   --early_exit_time_marker 48.0 \
   --dataset_path /n/tata_ddos_ceph/woojeong/data/enwiki_books_128_20/set0 \
-  --output_dir /n/tata_ddos_ceph/woojeong/saved_models/pretrain/training-out-halflarge \
+  --output_dir /n/tata_ddos_ceph/woojeong/saved_models/pretrain/ \
   --print_steps 100 \
   --num_epochs_between_checkpoints 10000 \
-  --job_name halflarge_pretraining-tmp \
+  --job_name halflarge \
   --current_run_id 0 \
   --project_name budget-bert-pretraining \
   --validation_epochs 3 \

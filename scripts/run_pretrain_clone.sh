@@ -1,5 +1,10 @@
-# export WANDB_MODE=disabled
-# deepspeed --num_gpus 1 run_pretraining.py \
+# Script to reproduce original 24H bert
+# Train for ~25k steps with 4 Titan-RTX gpus
+
+export WANDB_MODE=online
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+# to use only one gpu, run
+# deepspeed --include localhost:0 --master_port 29500 run_pretraining.py \
 deepspeed --num_gpus 4 run_pretraining.py \
   --model_type bert-mlm --tokenizer_name bert-large-uncased \
   --hidden_act gelu \
@@ -25,11 +30,11 @@ deepspeed --num_gpus 4 run_pretraining.py \
   --total_training_time 48.0 \
   --early_exit_time_marker 48.0 \
   --dataset_path /n/tata_ddos_ceph/woojeong/data/enwiki_books_128_20/total \
-  --output_dir ./saved_models/training-out-large \
+  --output_dir /n/tata_ddos_ceph/woojeong/saved_models/pretrain/ \
   --print_steps 100 \
   --num_epochs_between_checkpoints 10000 \
-  --job_name pretraining_experiment \
-  --current_run_id 1 \
+  --job_name large-clone \
+  --current_run_id default \
   --project_name budget-bert-pretraining \
   --validation_epochs 3 \
   --validation_epochs_begin 1 \

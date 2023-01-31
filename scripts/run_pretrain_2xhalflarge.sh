@@ -1,7 +1,10 @@
+# Script to train a 2xhalflarge models
+# Stitch two half-large models trained on set 0/1
+# and train the stitched model on set 2/3 
+# Train for ~6k steps with 1 Titan-RTX gpu
+
 export WANDB_MODE=online
-# TODO: change lr, dataset_path
-# deepspeed --num_gpus 4 run_pretraining.py \
-deepspeed --include localhost:0 --master_port 29503 run_pretraining.py \
+deepspeed --include localhost:0 --master_port 29500 run_pretraining.py \
   --model_type bert-mlm --tokenizer_name bert-large-uncased \
   --hidden_act gelu \
   --hidden_size 512 \
@@ -14,10 +17,10 @@ deepspeed --include localhost:0 --master_port 29503 run_pretraining.py \
   --lr 1e-3 \
   --train_batch_size 4096 \
   --train_micro_batch_size_per_gpu 32 \
-  --lr_schedule step \
+  --lr_schedule time \
   --curve linear \
-  --warmup_proportion 0.0 \
-  --gradient_clipping 6.0 \
+  --warmup_proportion 0.06 \
+  --gradient_clipping 0.0 \
   --optimizer_type adamw \
   --weight_decay 0.01 \
   --adam_beta1 0.9 \
@@ -25,12 +28,12 @@ deepspeed --include localhost:0 --master_port 29503 run_pretraining.py \
   --adam_eps 1e-6 \
   --total_training_time 48.0 \
   --early_exit_time_marker 48.0 \
-  --dataset_path /n/tata_ddos_ceph/woojeong/data/enwiki_books_128_20/set1 \
-  --output_dir ./saved_models/training-out-2xhalflarge \
+  --dataset_path /n/tata_ddos_ceph/woojeong/data/enwiki_books_128_20/set23 \
+  --output_dir /n/tata_ddos_ceph/woojeong/saved_models/pretrain/ \
   --print_steps 100 \
   --num_epochs_between_checkpoints 10000 \
-  --job_name 2xhalflarge_pretraining \
-  --current_run_id 1 \
+  --job_name 2xhalflarge \
+  --current_run_id set23 \
   --project_name budget-bert-pretraining \
   --validation_epochs 3 \
   --validation_epochs_begin 1 \
@@ -47,5 +50,5 @@ deepspeed --include localhost:0 --master_port 29503 run_pretraining.py \
   --seed 42 \
   --fp16 \
   --do_stitch \
-  --src_model1_path /n/home05/wk247/workspace/academic-budget-bert/saved_models/training-out-halflarge/halflarge_pretraining-0/0 \
-  --src_model2_path /n/home05/wk247/workspace/academic-budget-bert/saved_models/training-out-halflarge/halflarge_pretraining-1/1
+  --src_model1_path /n/tata_ddos_ceph/woojeong/saved_models/pretrain/halflarge_pretraining-0/0/epoch1000000_step10102/ \
+  --src_model2_path /n/tata_ddos_ceph/woojeong/saved_models/pretrain/halflarge_pretraining-1/1/epoch1000000_step10010/
