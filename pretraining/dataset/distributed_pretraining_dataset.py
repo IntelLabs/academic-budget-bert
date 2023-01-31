@@ -72,7 +72,9 @@ def create_pretraining_dataset(
     epoch=0,
 ):
     train_data = pretraining_dataset(
-        input_file=input_file, max_predictions_per_seq=max_predictions_per_seq, no_nsp=no_nsp
+        input_file=input_file,
+        max_predictions_per_seq=max_predictions_per_seq,
+        no_nsp=no_nsp,
     )
     sampler_instance = data_sampler(
         train_data, num_replicas=num_replicas, rank=rank, drop_last=True
@@ -169,7 +171,9 @@ class ValidationDataset:
         self.dataset_files.sort()
         self.num_files = len(self.dataset_files)
         if self.global_rank == 0:
-            logger.info(f"ValidationDataset - Initialization:  num_files = {self.num_files}")
+            logger.info(
+                f"ValidationDataset - Initialization:  num_files = {self.num_files}"
+            )
         self.max_predictions_per_seq = args.max_predictions_per_seq
         self.no_nsp = args.no_nsp
 
@@ -181,7 +185,9 @@ class ValidationDataset:
             max_predictions_per_seq=self.max_predictions_per_seq,
             no_nsp=self.no_nsp,
         )
-        logger.info(f"ValidationDataset - shard {file_index} - length {len(validation_data)}")
+        logger.info(
+            f"ValidationDataset - shard {file_index} - length {len(validation_data)}"
+        )
         return validation_data
 
 
@@ -212,19 +218,25 @@ class PreTrainingDataset(BertDatasetProviderInterface):
             for f in os.listdir(dataset_path)
             if os.path.isfile(os.path.join(dataset_path, f)) and data_prefix in f
         ]
-        assert len(self.dataset_files) > 0, "No train/test*.hdf5 files found in given dataset path"
+        assert (
+            len(self.dataset_files) > 0
+        ), "No train/test*.hdf5 files found in given dataset path"
         if data_prefix == "train":
             self.dataset_files.sort()
         random.shuffle(self.dataset_files)
         self.num_files = len(self.dataset_files)
-        self.data_sampler = RandomSampler if args.local_rank == -1 else DistributedSampler
+        self.data_sampler = (
+            RandomSampler if args.local_rank == -1 else DistributedSampler
+        )
 
         self.worker_init = WorkerInitObj(args.seed + args.local_rank)
         self.dataset_future = None
         self.pool = ProcessPoolExecutor(1)
 
         if self.global_rank == 0:
-            self.logger.info(f"PreTrainingDataset - Initialization:  num_files = {self.num_files}")
+            self.logger.info(
+                f"PreTrainingDataset - Initialization:  num_files = {self.num_files}"
+            )
         self.no_nsp = args.no_nsp
 
     def get_shard(self, epoch):
@@ -243,7 +255,9 @@ class PreTrainingDataset(BertDatasetProviderInterface):
                 epoch=epoch,
             )
         else:
-            self.train_dataloader, sample_count = self.dataset_future.result(timeout=None)
+            self.train_dataloader, sample_count = self.dataset_future.result(
+                timeout=None
+            )
 
         return self.train_dataloader, sample_count
 
@@ -279,7 +293,11 @@ class PreTrainingDataset(BertDatasetProviderInterface):
     def _get_shard_file_index(self, shard_index, global_rank):
         if dist.is_initialized() and self.world_size > self.num_files:
             remainder = self.world_size % self.num_files
-            file_index = (shard_index * self.world_size) + global_rank + (remainder * shard_index)
+            file_index = (
+                (shard_index * self.world_size)
+                + global_rank
+                + (remainder * shard_index)
+            )
         else:
             file_index = shard_index * self.world_size + global_rank
 

@@ -27,7 +27,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import copy
 import logging
 import math
-import os
 import sys
 
 import torch
@@ -122,7 +121,9 @@ class LinearActivation(Module):
         self.fused_gelu = False
         self.fused_tanh = False
         self.fused_relu = False
-        if isinstance(act, str) or (sys.version_info[0] == 2 and isinstance(act, unicode)):
+        if isinstance(act, str) or (
+            sys.version_info[0] == 2 and isinstance(act, unicode_literals)
+        ):
             if bias and act == "gelu":
                 self.fused_gelu = True
             elif bias and act == "tanh":
@@ -169,7 +170,9 @@ class RegularLinearActivation(Module):
     def __init__(self, in_features, out_features, act="gelu"):
         super(RegularLinearActivation, self).__init__()
         self.dense = nn.Linear(in_features, out_features)
-        if isinstance(act, str) or (sys.version_info[0] == 2 and isinstance(act, unicode)):
+        if isinstance(act, str) or (
+            sys.version_info[0] == 2 and isinstance(act, unicode_literals)
+        ):
             self.act = ACT2FN[act]
 
     def forward(self, hidden_states):
@@ -186,7 +189,9 @@ def get_apex_layer_norm():
         # apex.amp.register_float_function(apex.normalization.FusedLayerNorm, 'forward')
         return apex.normalization.FusedLayerNorm
     except ImportError:
-        raise Exception(f"Layer norm of type apex is not available, apex not installed.")
+        raise Exception(
+            "Layer norm of type apex is not available, apex not installed."
+        )
 
 
 class RMSNorm(torch.nn.Module):
@@ -233,14 +238,20 @@ class RMSNorm(torch.nn.Module):
         return self.scale * x_normed
 
 
-LAYER_NORM_TYPES = {"pytorch": nn.LayerNorm, "apex": get_apex_layer_norm(), "rms_norm": RMSNorm}
+LAYER_NORM_TYPES = {
+    "pytorch": nn.LayerNorm,
+    "apex": get_apex_layer_norm(),
+    "rms_norm": RMSNorm,
+}
 
 
 def get_layer_norm_type(config):
     if config.layer_norm_type in LAYER_NORM_TYPES:
         return LAYER_NORM_TYPES[config.layer_norm_type]
     else:
-        raise Exception(f"Layer norm of type {config.layer_norm_type} is not available.")
+        raise Exception(
+            f"Layer norm of type {config.layer_norm_type} is not available."
+        )
 
 
 class BertEmbeddings(nn.Module):
@@ -250,8 +261,12 @@ class BertEmbeddings(nn.Module):
         super(BertEmbeddings, self).__init__()
         self.config = config
         self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size)
-        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
-        self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
+        self.position_embeddings = nn.Embedding(
+            config.max_position_embeddings, config.hidden_size
+        )
+        self.token_type_embeddings = nn.Embedding(
+            config.type_vocab_size, config.hidden_size
+        )
 
         self.layernorm_embedding = config.layernorm_embedding
         if config.layernorm_embedding:
@@ -262,7 +277,9 @@ class BertEmbeddings(nn.Module):
 
     def forward(self, input_ids, token_type_ids=None, skip_ln_dp=None):
         seq_length = input_ids.size(1)
-        position_ids = torch.arange(seq_length, dtype=torch.long, device=input_ids.device)
+        position_ids = torch.arange(
+            seq_length, dtype=torch.long, device=input_ids.device
+        )
         position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
         if token_type_ids is None:
             token_type_ids = torch.zeros_like(input_ids)
@@ -277,7 +294,7 @@ class BertEmbeddings(nn.Module):
         if skip_ln_dp:
             print("test mode: skipping layernorm, dropout in BertEmbeddings")
             return embeddings
-        
+
         if self.layernorm_embedding:
             embeddings = self.LayerNorm(embeddings)
 
@@ -309,12 +326,18 @@ class BertSelfAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def transpose_for_scores(self, x):
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        new_x_shape = x.size()[:-1] + (
+            self.num_attention_heads,
+            self.attention_head_size,
+        )
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
     def transpose_key_for_scores(self, x):
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        new_x_shape = x.size()[:-1] + (
+            self.num_attention_heads,
+            self.attention_head_size,
+        )
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 3, 1)
 
@@ -375,7 +398,9 @@ class BertAttention(nn.Module):
         self.output = BertSelfOutput(config)
 
     def forward(self, input_tensor, attention_mask, skip_ln_dp=False):
-        context_layer, attention_probs = self.self(input_tensor, attention_mask, skip_ln_dp)
+        context_layer, attention_probs = self.self(
+            input_tensor, attention_mask, skip_ln_dp
+        )
         attention_output = self.output(context_layer, input_tensor, skip_ln_dp)
         output = (
             attention_output,
@@ -432,7 +457,9 @@ class BertLayer(nn.Module):
         else:
             return hidden_states
 
-    def forward(self, hidden_states, attention_mask, action=1, keep_prob=1.0, skip_ln_dp=False):
+    def forward(
+        self, hidden_states, attention_mask, action=1, keep_prob=1.0, skip_ln_dp=False
+    ):
         attention_probs = None
         intermediate_input = None
 
@@ -447,7 +474,7 @@ class BertLayer(nn.Module):
                 pre_attn_input = self.maybe_layer_norm(
                     hidden_states, self.PreAttentionLayerNorm, "pre-ln"
                 )
-            
+
             # attention
             self_attn_out = self.attention(pre_attn_input, attention_mask, skip_ln_dp)
 
@@ -456,7 +483,7 @@ class BertLayer(nn.Module):
 
             # skip connection
             intermediate_input = hidden_states + attention_output
-            
+
             # PreAttentionLayerNorm (post)
             if skip_ln_dp:
                 print("test mode: skipping PreAttentionLayerNorm in BertLayer")
@@ -464,7 +491,7 @@ class BertLayer(nn.Module):
             else:
                 intermediate_input = self.maybe_layer_norm(
                     intermediate_input, self.PreAttentionLayerNorm, "post-ln"
-                )         
+                )
 
         if action == 0:
             layer_output = intermediate_input
@@ -477,14 +504,14 @@ class BertLayer(nn.Module):
                 intermediate_pre_ffn = self.maybe_layer_norm(
                     intermediate_input, self.PostAttentionLayerNorm, "pre-ln"
                 )
-                
+
             intermediate_output = self.intermediate(intermediate_pre_ffn)
 
             layer_output = self.output(intermediate_output)
             layer_output = layer_output * 1 / keep_prob
 
             layer_output = layer_output + intermediate_input
-            
+
             # PostAttentionLayerNorm (pre)
             if skip_ln_dp:
                 print("test mode: skipping PreAttentionLayerNorm in BertLayer")
@@ -508,10 +535,14 @@ class BertEncoder(nn.Module):
         BertLayerNorm = get_layer_norm_type(config)
         self.FinalLayerNorm = BertLayerNorm(config.hidden_size, eps=1e-12)
         self.is_transformer_kernel = (
-            hasattr(args, "deepspeed_transformer_kernel") and args.deepspeed_transformer_kernel
+            hasattr(args, "deepspeed_transformer_kernel")
+            and args.deepspeed_transformer_kernel
         )
 
-        if hasattr(args, "deepspeed_transformer_kernel") and args.deepspeed_transformer_kernel:
+        if (
+            hasattr(args, "deepspeed_transformer_kernel")
+            and args.deepspeed_transformer_kernel
+        ):
             from deepspeed import DeepSpeedTransformerConfig, DeepSpeedTransformerLayer
 
             ds_config = get_deepspeed_config(args)
@@ -602,7 +633,9 @@ class BertEncoder(nn.Module):
                     hidden_states, attention_probs = layer_out
                     # get all attention_probs from layers
                     if output_attentions:
-                        all_attentions = self.add_attention(all_attentions, attention_probs)
+                        all_attentions = self.add_attention(
+                            all_attentions, attention_probs
+                        )
 
                 if output_all_encoded_layers:
                     all_encoder_layers.append(hidden_states)
@@ -625,7 +658,9 @@ class BertPooler(nn.Module):
             linear_layer = LinearActivation
         else:
             linear_layer = RegularLinearActivation
-        self.dense_act = linear_layer(config.hidden_size, config.hidden_size, act="tanh")
+        self.dense_act = linear_layer(
+            config.hidden_size, config.hidden_size, act="tanh"
+        )
 
     def forward(self, hidden_states):
         # We "pool" the model by simply taking the hidden state corresponding
@@ -643,7 +678,9 @@ class BertPredictionHeadTransform(nn.Module):
             linear_layer = LinearActivation
         else:
             linear_layer = RegularLinearActivation
-        self.dense_act = linear_layer(config.hidden_size, config.hidden_size, act=config.hidden_act)
+        self.dense_act = linear_layer(
+            config.hidden_size, config.hidden_size, act=config.hidden_act
+        )
         BertLayerNorm = get_layer_norm_type(config)
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=1e-12)
 
@@ -660,7 +697,9 @@ class BertLMPredictionHead(nn.Module):
         super(BertLMPredictionHead, self).__init__()
         self.transform = BertPredictionHeadTransform(config)
         self.decoder = nn.Linear(
-            bert_model_embedding_weights.size(1), bert_model_embedding_weights.size(0), bias=False
+            bert_model_embedding_weights.size(1),
+            bert_model_embedding_weights.size(0),
+            bias=False,
         )
         self.decoder.weight = bert_model_embedding_weights
         self.bias = nn.Parameter(torch.zeros(bert_model_embedding_weights.size(0)))
@@ -836,7 +875,9 @@ class BertModel(BertPreTrainedModel):
         )  # fp16 compatibility
         extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
 
-        embedding_output = self.embeddings(input_ids, token_type_ids, skip_ln_dp=skip_ln_dp)
+        embedding_output = self.embeddings(
+            input_ids, token_type_ids, skip_ln_dp=skip_ln_dp
+        )
 
         encoder_output = self.encoder(
             embedding_output,
@@ -916,7 +957,9 @@ class BertForPreTraining(BertPreTrainedModel):
     def __init__(self, config, args):
         super(BertForPreTraining, self).__init__(config)
         self.bert = BertModel(config, args)
-        self.cls = BertPreTrainingHeads(config, self.bert.embeddings.word_embeddings.weight)
+        self.cls = BertPreTrainingHeads(
+            config, self.bert.embeddings.word_embeddings.weight
+        )
         self.apply(self.init_bert_weights)
 
     def forward(self, batch):
@@ -943,17 +986,23 @@ class BertForPreTraining(BertPreTrainedModel):
             prediction_scores, seq_relationship_score = self.cls(
                 sequence_output, pooled_output, masked_token_indexes
             )
-            target = torch.index_select(masked_lm_labels.view(-1), 0, masked_token_indexes)
+            target = torch.index_select(
+                masked_lm_labels.view(-1), 0, masked_token_indexes
+            )
 
             loss_fct = CrossEntropyLoss(ignore_index=-1)
-            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), target)
+            masked_lm_loss = loss_fct(
+                prediction_scores.view(-1, self.config.vocab_size), target
+            )
             next_sentence_loss = loss_fct(
                 seq_relationship_score.view(-1, 2), next_sentence_label.view(-1)
             )
             total_loss = masked_lm_loss + next_sentence_loss
             return total_loss
         else:
-            prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
+            prediction_scores, seq_relationship_score = self.cls(
+                sequence_output, pooled_output
+            )
             return prediction_scores, seq_relationship_score
 
 
@@ -1026,15 +1075,19 @@ class BertLMHeadModel(BertPreTrainedModel):
             prediction_scores = self.cls(sequence_output)
             return prediction_scores
 
-        masked_token_indexes = torch.nonzero((masked_lm_labels + 1).view(-1), as_tuple=False).view(
-            -1
-        )
+        masked_token_indexes = torch.nonzero(
+            (masked_lm_labels + 1).view(-1), as_tuple=False
+        ).view(-1)
         prediction_scores = self.cls(sequence_output, masked_token_indexes)
 
         if masked_lm_labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-1)
-            target = torch.index_select(masked_lm_labels.view(-1), 0, masked_token_indexes)
-            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), target)
+            target = torch.index_select(
+                masked_lm_labels.view(-1), 0, masked_token_indexes
+            )
+            masked_lm_loss = loss_fct(
+                prediction_scores.view(-1, self.config.vocab_size), target
+            )
 
             outputs = (masked_lm_loss,)
             if output_attentions:

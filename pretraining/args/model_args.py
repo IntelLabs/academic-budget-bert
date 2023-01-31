@@ -28,7 +28,9 @@ class ModelArguments:
 
     _argument_group_name = "Model Arguments"
 
-    model_type: Optional[str] = field(default="bert-mlm", metadata={"help": "bert_model_type"})
+    model_type: Optional[str] = field(
+        default="bert-mlm", metadata={"help": "bert_model_type"}
+    )
 
     model_name_or_path: Optional[str] = field(
         default=None,
@@ -38,21 +40,29 @@ class ModelArguments:
     )
     config_name: Optional[str] = field(
         default=None,
-        metadata={"help": "Pretrained config name or path if not the same as model_name"},
+        metadata={
+            "help": "Pretrained config name or path if not the same as model_name"
+        },
     )
     tokenizer_name: Optional[str] = field(
         default=None,
-        metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"},
+        metadata={
+            "help": "Pretrained tokenizer name or path if not the same as model_name"
+        },
     )
     load_tokenizer_locally: Optional[bool] = field(
-        default=False, metadata={"help": "if https connection is blocked, load tokenizer locally"}
+        default=False,
+        metadata={"help": "if https connection is blocked, load tokenizer locally"},
     )
     cache_dir: Optional[str] = field(
         default=None,
-        metadata={"help": "Where do you want to store the pretrained models downloaded from s3"},
+        metadata={
+            "help": "Where do you want to store the pretrained models downloaded from s3"
+        },
     )
     pretrain_run_args: Optional[str] = field(
-        default=None, metadata={"help": "Pre-training run command (used by run_glue.py)"}
+        default=None,
+        metadata={"help": "Pre-training run command (used by run_glue.py)"},
     )
 
 
@@ -70,13 +80,21 @@ class ModelConfigArguments:
 
     hidden_size: Optional[int] = field(default=1024, metadata={"help": "hidden_size"})
 
-    num_hidden_layers: Optional[int] = field(default=24, metadata={"help": "num_hidden_layers"})
+    num_hidden_layers: Optional[int] = field(
+        default=24, metadata={"help": "num_hidden_layers"}
+    )
 
-    num_attention_heads: Optional[int] = field(default=16, metadata={"help": "num_attention_heads"})
+    num_attention_heads: Optional[int] = field(
+        default=16, metadata={"help": "num_attention_heads"}
+    )
 
-    intermediate_size: Optional[int] = field(default=4096, metadata={"help": "intermediate_size"})
+    intermediate_size: Optional[int] = field(
+        default=4096, metadata={"help": "intermediate_size"}
+    )
 
-    hidden_act: Optional[str] = field(default="gelu", metadata={"help": "hidden_act: [gelu, relu]"})
+    hidden_act: Optional[str] = field(
+        default="gelu", metadata={"help": "hidden_act: [gelu, relu]"}
+    )
 
     hidden_dropout_prob: Optional[float] = field(
         default=0.1, metadata={"help": "hidden_dropout_prob"}
@@ -94,9 +112,13 @@ class ModelConfigArguments:
         default=False, metadata={"help": "add layernorm to embedding layer"}
     )
 
-    type_vocab_size: Optional[int] = field(default=2, metadata={"help": "type_vocab_size"})
+    type_vocab_size: Optional[int] = field(
+        default=2, metadata={"help": "type_vocab_size"}
+    )
 
-    initializer_range: Optional[float] = field(default=0.02, metadata={"help": "initializer_range"})
+    initializer_range: Optional[float] = field(
+        default=0.02, metadata={"help": "initializer_range"}
+    )
 
     fused_linear_layer: Optional[bool] = field(
         default=True,
@@ -107,7 +129,9 @@ class ModelConfigArguments:
 
     sparse_mask_prediction: Optional[bool] = field(
         default=True,
-        metadata={"help": "Use sparse MLM prediction. i.e., predict only on masked words"},
+        metadata={
+            "help": "Use sparse MLM prediction. i.e., predict only on masked words"
+        },
     )
 
     encoder_ln_mode: Optional[str] = field(

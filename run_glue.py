@@ -23,7 +23,9 @@ import os
 import random
 import sys
 from argparse import Namespace
-from pretraining.args.deepspeed_args import remove_cuda_compatibility_for_kernel_compilation
+from pretraining.args.deepspeed_args import (
+    remove_cuda_compatibility_for_kernel_compilation,
+)
 from pretraining.modeling import BertForSequenceClassification
 from pretraining.configs import PretrainedBertConfig
 from dataclasses import dataclass, field
@@ -76,7 +78,10 @@ class DataTrainingArguments:
 
     task_name: Optional[str] = field(
         default=None,
-        metadata={"help": "The name of the task to train on: " + ", ".join(task_to_keys.keys())},
+        metadata={
+            "help": "The name of the task to train on: "
+            + ", ".join(task_to_keys.keys())
+        },
     )
     max_seq_length: int = field(
         default=128,
@@ -86,7 +91,8 @@ class DataTrainingArguments:
         },
     )
     overwrite_cache: bool = field(
-        default=False, metadata={"help": "Overwrite the cached preprocessed datasets or not."}
+        default=False,
+        metadata={"help": "Overwrite the cached preprocessed datasets or not."},
     )
     pad_to_max_length: bool = field(
         default=True,
@@ -96,10 +102,12 @@ class DataTrainingArguments:
         },
     )
     train_file: Optional[str] = field(
-        default=None, metadata={"help": "A csv or a json file containing the training data."}
+        default=None,
+        metadata={"help": "A csv or a json file containing the training data."},
     )
     validation_file: Optional[str] = field(
-        default=None, metadata={"help": "A csv or a json file containing the validation data."}
+        default=None,
+        metadata={"help": "A csv or a json file containing the validation data."},
     )
 
     def __post_init__(self):
@@ -107,15 +115,22 @@ class DataTrainingArguments:
             self.task_name = self.task_name.lower()
             if self.task_name not in task_to_keys.keys():
                 raise ValueError(
-                    "Unknown task, you should pick one in " + ",".join(task_to_keys.keys())
+                    "Unknown task, you should pick one in "
+                    + ",".join(task_to_keys.keys())
                 )
         elif self.train_file is None or self.validation_file is None:
             raise ValueError("Need either a GLUE task or a training/validation file.")
         else:
             extension = self.train_file.split(".")[-1]
-            assert extension in ["csv", "json"], "`train_file` should be a csv or a json file."
+            assert extension in [
+                "csv",
+                "json",
+            ], "`train_file` should be a csv or a json file."
             extension = self.validation_file.split(".")[-1]
-            assert extension in ["csv", "json"], "`validation_file` should be a csv or a json file."
+            assert extension in [
+                "csv",
+                "json",
+            ], "`validation_file` should be a csv or a json file."
 
 
 @dataclass
@@ -125,15 +140,21 @@ class ModelArguments:
     """
 
     model_name_or_path: str = field(
-        metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+        metadata={
+            "help": "Path to pretrained model or model identifier from huggingface.co/models"
+        }
     )
     config_name: Optional[str] = field(
         default=None,
-        metadata={"help": "Pretrained config name or path if not the same as model_name"},
+        metadata={
+            "help": "Pretrained config name or path if not the same as model_name"
+        },
     )
     tokenizer_name: Optional[str] = field(
         default=None,
-        metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"},
+        metadata={
+            "help": "Pretrained tokenizer name or path if not the same as model_name"
+        },
     )
     cache_dir: Optional[str] = field(
         default=None,
@@ -152,14 +173,19 @@ class ModelArguments:
 @dataclass
 class FinetuneTrainingArguments(TrainingArguments):
     group_name: Optional[str] = field(default=None, metadata={"help": "W&B group name"})
-    project_name: Optional[str] = field(default=None, metadata={"help": "Project name (W&B)"})
+    project_name: Optional[str] = field(
+        default=None, metadata={"help": "Project name (W&B)"}
+    )
     early_stopping_patience: Optional[int] = field(
-        default=-1, metadata={"help": "Early stopping patience value (default=-1 (disable))"}
+        default=-1,
+        metadata={"help": "Early stopping patience value (default=-1 (disable))"},
     )
     # overriding to be True, for consistency with final_eval_{metric_name}
     fp16_full_eval: bool = field(
         default=True,
-        metadata={"help": "Whether to use full 16-bit precision evaluation instead of 32-bit"},
+        metadata={
+            "help": "Whether to use full 16-bit precision evaluation instead of 32-bit"
+        },
     )
 
 
@@ -169,7 +195,9 @@ def main():
     # We now keep distinct sets of args, for a cleaner separation of concerns.
     unique_run_id = str(uuid.uuid1())
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, FinetuneTrainingArguments))
+    parser = HfArgumentParser(
+        (ModelArguments, DataTrainingArguments, FinetuneTrainingArguments)
+    )
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -194,7 +222,9 @@ def main():
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO if is_main_process(training_args.local_rank) else logging.WARN,
+        level=logging.INFO
+        if is_main_process(training_args.local_rank)
+        else logging.WARN,
     )
 
     # Log on each process the small summary:
@@ -231,13 +261,19 @@ def main():
         # Loading a dataset from local csv files
         datasets = load_dataset(
             "csv",
-            data_files={"train": data_args.train_file, "validation": data_args.validation_file},
+            data_files={
+                "train": data_args.train_file,
+                "validation": data_args.validation_file,
+            },
         )
     else:
         # Loading a dataset from local json files
         datasets = load_dataset(
             "json",
-            data_files={"train": data_args.train_file, "validation": data_args.validation_file},
+            data_files={
+                "train": data_args.train_file,
+                "validation": data_args.validation_file,
+            },
         )
     # See more about loading any type of standard or custom dataset at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
@@ -252,7 +288,10 @@ def main():
             num_labels = 1
     else:
         # Trying to have good defaults here, don't hesitate to tweak to your needs.
-        is_regression = datasets["train"].features["label"].dtype in ["float32", "float64"]
+        is_regression = datasets["train"].features["label"].dtype in [
+            "float32",
+            "float64",
+        ]
         if is_regression:
             num_labels = 1
         else:
@@ -267,7 +306,9 @@ def main():
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
 
-    pretrain_run_args = json.load(open(f"{model_args.model_name_or_path}/args.json", "r"))
+    pretrain_run_args = json.load(
+        open(f"{model_args.model_name_or_path}/args.json", "r")
+    )
 
     def get_correct_ds_args(pretrain_run_args):
         ds_args = Namespace()
@@ -292,7 +333,9 @@ def main():
 
     if os.path.isdir(model_args.model_name_or_path):
         config = PretrainedBertConfig.from_pretrained(
-            model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+            model_args.config_name
+            if model_args.config_name
+            else model_args.model_name_or_path,
             num_labels=num_labels,
             finetuning_task=data_args.task_name,
             cache_dir=model_args.cache_dir,
@@ -312,7 +355,9 @@ def main():
         )
     else:
         config = AutoConfig.from_pretrained(
-            model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+            model_args.config_name
+            if model_args.config_name
+            else model_args.model_name_or_path,
             num_labels=num_labels,
             finetuning_task=data_args.task_name,
             cache_dir=model_args.cache_dir,
@@ -345,7 +390,10 @@ def main():
         non_label_column_names = [
             name for name in datasets["train"].column_names if name != "label"
         ]
-        if "sentence1" in non_label_column_names and "sentence2" in non_label_column_names:
+        if (
+            "sentence1" in non_label_column_names
+            and "sentence2" in non_label_column_names
+        ):
             sentence1_key, sentence2_key = "sentence1", "sentence2"
         else:
             if len(non_label_column_names) >= 2:
@@ -372,7 +420,9 @@ def main():
         # Some have all caps in their config, some don't.
         label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
         if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
-            label_to_id = {i: label_name_to_id[label_list[i]] for i in range(num_labels)}
+            label_to_id = {
+                i: label_name_to_id[label_list[i]] for i in range(num_labels)
+            }
         else:
             logger.warn(
                 "Your model seems to have been trained with labels, but they don't match the dataset: ",
@@ -389,7 +439,9 @@ def main():
             if sentence2_key is None
             else (examples[sentence1_key], examples[sentence2_key])
         )
-        result = tokenizer(*args, padding=padding, max_length=max_length, truncation=True)
+        result = tokenizer(
+            *args, padding=padding, max_length=max_length, truncation=True
+        )
 
         # Map labels to IDs (not necessary for GLUE tasks)
         if label_to_id is not None and "label" in examples:
@@ -397,13 +449,19 @@ def main():
         return result
 
     datasets = datasets.map(
-        preprocess_function, batched=True, load_from_cache_file=not data_args.overwrite_cache
+        preprocess_function,
+        batched=True,
+        load_from_cache_file=not data_args.overwrite_cache,
     )
 
     train_dataset = datasets["train"]
-    eval_dataset = datasets["validation_matched" if data_args.task_name == "mnli" else "validation"]
+    eval_dataset = datasets[
+        "validation_matched" if data_args.task_name == "mnli" else "validation"
+    ]
     if data_args.task_name is not None:
-        test_dataset = datasets["test_matched" if data_args.task_name == "mnli" else "test"]
+        test_dataset = datasets[
+            "test_matched" if data_args.task_name == "mnli" else "test"
+        ]
 
     # Log a few random samples from the training set:
     for index in random.sample(range(len(train_dataset)), 3):
@@ -444,7 +502,9 @@ def main():
         wandb.config.update(training_args)
 
     except Exception as e:
-        logger.warning("W&B logger is not available, please install to get proper logging")
+        logger.warning(
+            "W&B logger is not available, please install to get proper logging"
+        )
         logger.error(e)
 
     # init early stopping callback and metric to monitor
@@ -505,7 +565,9 @@ def main():
                 log_metrics["final_" + k] = v
             wandb.log(log_metrics)
         except Exception as e:
-            logger.warning("W&B logger is not available, please install to get proper logging")
+            logger.warning(
+                "W&B logger is not available, please install to get proper logging"
+            )
             logger.error(e)
 
     if training_args.do_predict:
@@ -523,7 +585,9 @@ def main():
             test_dataset.remove_columns_("label")
             predictions = trainer.predict(test_dataset=test_dataset).predictions
             predictions = (
-                np.squeeze(predictions) if is_regression else np.argmax(predictions, axis=1)
+                np.squeeze(predictions)
+                if is_regression
+                else np.argmax(predictions, axis=1)
             )
 
             test_results_file_name = f"test_results_{task}_{unique_run_id}.txt"
@@ -532,7 +596,9 @@ def main():
                     model_args.model_name_or_path, test_results_file_name
                 )
             else:
-                output_test_file = os.path.join(training_args.output_dir, test_results_file_name)
+                output_test_file = os.path.join(
+                    training_args.output_dir, test_results_file_name
+                )
 
             print(f"test_results_file_name: {test_results_file_name}")
 

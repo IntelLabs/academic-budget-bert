@@ -28,9 +28,13 @@ class PreTrainDatasetArguments:
     dataset_path: Optional[str] = field(
         default="books_wiki_en_corpus", metadata={"help": "pretrain_dataset"}
     )
-    num_workers: Optional[int] = field(default=4, metadata={"help": "num of dataloader workers"})
+    num_workers: Optional[int] = field(
+        default=4, metadata={"help": "num of dataloader workers"}
+    )
 
-    async_worker: Optional[bool] = field(default=True, metadata={"help": "async_worker"})
+    async_worker: Optional[bool] = field(
+        default=True, metadata={"help": "async_worker"}
+    )
 
     data_loader_type: Optional[str] = field(
         default="per_device",
