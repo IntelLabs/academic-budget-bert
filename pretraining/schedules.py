@@ -30,7 +30,6 @@ def build_scheduler(optimizer, scheduler, curver):
             return curver.get_decay(
                 scheduler.get_total(), position, scheduler.get_total_warmup()
             )
-
     return LambdaLR(optimizer, get_warmup_calc, last_epoch=-1)
 
 

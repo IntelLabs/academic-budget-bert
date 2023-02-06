@@ -43,7 +43,7 @@ if __name__ == "__main__":
     # make dirs and copy files
     for i in range(args.split):
         # make dirs
-        dst_path = os.path.join(data_path, f"set{i}")
+        dst_path = os.path.join(args.data_path, f"set{i}")
         os.makedirs(dst_path, exist_ok=True)
         print(f"created {dst_path} directory")
 

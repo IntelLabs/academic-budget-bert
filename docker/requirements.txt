@@ -1,0 +1,11 @@
+deepspeed==0.4.3
+transformers==4.4.0
+datasets
+numpy
+tqdm
+sklearn
+nltk
+wandb
+six
+h5py
+wikiextractor
