@@ -17,6 +17,8 @@
 from collections import defaultdict
 from itertools import islice
 
+import numpy as np
+
 import multiprocessing
 import statistics
 
@@ -74,11 +76,21 @@ class Sharding:
         # TODO: WIP: multiprocessing (create independent ranges and spawn processes)
         use_multiprocessing = "serial"
 
-        def chunks(data, size=len(self.articles)):
-            it = iter(data)
-            for i in range(0, len(data), size):
-                yield {k: data[k] for k in islice(it, size)}
+        def chunks(data, n_processes=7):
+            size = len(data)
+            chunk_sz = int(size//n_processes) 
+            if size % n_processes != 0:
+                chunk_sz += 1
 
+            start_index = 0
+            all_indices = np.arange(len(data))
+            np.random.shuffle(all_indices)
+            for i in range(0, n_processes):
+                end_index = min(size, start_index + chunk_sz)
+                yield {k: data[k] for k in all_indices[start_index: end_index]}
+                start_index = end_index
+
+        # TODO: WIP: multiprocessing (use manager dict for multiprocessing)
         if use_multiprocessing == "manager":
             manager = multiprocessing.Manager()
             return_dict = manager.dict()
@@ -109,11 +121,43 @@ class Sharding:
                 proc.join()
 
         elif use_multiprocessing == "queue":
+            n_processes = 7
             work_queue = multiprocessing.Queue()
             jobs = []
 
-            for item in chunks(self.articles, len(self.articles)):
-                pass
+            def child_work(articles, process_index, work_queue):
+                for i, article in enumerate(articles):
+                    sentence = segmenter.segment_string(articles[article])
+                    work_queue.put((process_index, article, sentence))
+                work_queue.put((process_index, "Done"))
+
+            for item in chunks(self.articles, n_processes):
+                print("chunk size = ", len(item))
+                p = multiprocessing.Process(target=child_work, args=(item, len(jobs), work_queue))
+
+                jobs.append(p)
+                print("Number of Jobs = ", len(jobs))
+                p.start()
+                print(f"Process {len(jobs)-1} Started")
+
+            done_tasks = 0
+            n_sentences = 0
+            while True:
+                msg = work_queue.get()
+                if msg[1] == "Done":
+                    done_tasks += 1
+                    print(f"Completed Process: {msg[0]}")
+                    if done_tasks == n_processes:
+                        break
+                else:
+                    self.sentences[msg[1]] = msg[2] 
+                    if n_sentences % 5000 == 0:
+                        print("Segmenting article", n_sentences)
+                    n_sentences += 1
+                    
+            print("Joining Jobs")
+            for proc in jobs:
+                proc.join()
 
         else:  # serial option
             for i, article in enumerate(self.articles):
